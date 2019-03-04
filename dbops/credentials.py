@@ -1,13 +1,9 @@
 import asyncpg
-from typing import Optional
+from typing import Optional, Callable
 
 
 class DatabaseCredentials:
     def __init__(self, user, host, password, name):
-        self.user = user
-        self.host = host
-        self.password = password
-        self.name = name
         self.credentials = {
             "database": name,
             "host": host,
@@ -16,14 +12,13 @@ class DatabaseCredentials:
         }
 
     async def make_pool(self) -> Optional[asyncpg.pool.Pool]:
-        try:
-            return await asyncpg.create_pool(database=self.name, user=self.user, password=self.password, host=self.host)
-        except asyncpg.exceptions.InvalidAuthorizationSpecificationError:
-            return None
+        return await self.__args_with(asyncpg.create_pool)
 
     async def connection(self) -> Optional[asyncpg.connection.Connection]:
+        return await self.__args_with(asyncpg.connect)
+
+    async def __args_with(self, f: Callable) -> Optional:
         try:
-            return await asyncpg.connect(**self.credentials)
-        except Exception as e:
-            print(e)
+            return await f(**self.credentials)
+        except asyncpg.exceptions.InvalidAuthorizationSpecificationError:
             return None
