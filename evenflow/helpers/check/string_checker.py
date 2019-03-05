@@ -1,5 +1,6 @@
-from typing import Optional
 import re
+
+from typing import Optional
 
 
 def value_or_none(to_check) -> Optional[str]:

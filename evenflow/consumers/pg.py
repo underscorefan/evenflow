@@ -1,8 +1,9 @@
+import asyncpg
+import asyncio
+
 from typing import List
 from evenflow.dbops import QueryManager
 from evenflow.messages import ArticleExtended, Error
-import asyncpg
-import asyncio
 
 
 async def store_articles(pool: asyncpg.pool.Pool, storage_queue: asyncio.Queue, error_queue: asyncio.Queue):

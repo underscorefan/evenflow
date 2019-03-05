@@ -1,10 +1,10 @@
+import asyncio
 from .fci import SourceSpider
 from typing import List, Optional
 from .helpers.hostracker import HostTracker
 from .helpers.unreliableset import UnreliableSet
 from .helpers.file import read_json_from
 from .dbops import DatabaseCredentials
-import asyncio
 
 
 class Conf:

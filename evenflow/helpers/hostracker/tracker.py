@@ -1,9 +1,10 @@
-from evenflow.helpers.req import resolve_ip_future
-from typing import Optional
-from evenflow.helpers.req import maintain_netloc
 import asyncio
 import socket
 import json
+
+from typing import Optional
+from evenflow.helpers.req import resolve_ip_future
+from evenflow.helpers.req import maintain_netloc
 
 
 class HostTracker:
