@@ -1,0 +1,6 @@
+uvloop==0.11.3
+newspaper3k==0.2.8
+aiohttp==3.5.4
+asyncpg==0.18.3
+aiofiles==0.4.0
+beautifulsoup4==4.7.1
