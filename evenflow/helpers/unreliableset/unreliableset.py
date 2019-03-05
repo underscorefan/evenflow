@@ -1,5 +1,5 @@
 from typing import Set, Optional
-from helpers.req import maintain_netloc, remove_prefix
+from evenflow.helpers.req import maintain_netloc, remove_prefix
 
 
 class UnreliableSet:

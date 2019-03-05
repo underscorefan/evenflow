@@ -3,12 +3,12 @@ import asyncio
 from typing import Optional, List, Dict
 from aiohttp import TCPConnector, ClientSession, ServerDisconnectedError
 from newspaper.configuration import Configuration
-from ade import scraper_factory
-from helpers.check.article_checker import ArticleChecker
-from helpers.file import asy_write_json
-from helpers.unreliableset import UnreliableSet
-from helpers.req.headers import firefox
-from messages import LinkContainer, ArticleExtended, Error
+from evenflow.ade import scraper_factory
+from evenflow.helpers.check.article_checker import ArticleChecker
+from evenflow.helpers.file import asy_write_json
+from evenflow.helpers.unreliableset import UnreliableSet
+from evenflow.helpers.req.headers import firefox
+from evenflow.messages import LinkContainer, ArticleExtended, Error
 
 
 def newspaper_config() -> Configuration:

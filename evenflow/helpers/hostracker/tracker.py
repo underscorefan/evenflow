@@ -1,6 +1,6 @@
-from helpers.req import resolve_ip_future
+from evenflow.helpers.req import resolve_ip_future
 from typing import Optional
-from helpers.req import maintain_netloc
+from evenflow.helpers.req import maintain_netloc
 import asyncio
 import socket
 import json

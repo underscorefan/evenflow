@@ -1,8 +1,8 @@
-from aiohttp import ClientSession
-from helpers.html import PageOps
-from typing import List, Tuple, Optional, Dict
-from helpers.func import mmap
 import abc
+from aiohttp import ClientSession
+from typing import List, Tuple, Optional, Dict
+from evenflow.helpers.func import mmap
+from evenflow.helpers.html import PageOps
 
 ps = 'page_scraped'
 pn = 'page_number'

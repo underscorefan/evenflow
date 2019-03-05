@@ -2,11 +2,10 @@ import asyncio
 import uvloop
 import time
 from aiohttp import ClientSession
-import consumers.article
-import consumers.pg
-from fci import SourceManager
-from readconf import Conf
-from helpers.unreliableset import UnreliableSet
+from evenflow import consumers
+from evenflow.fci import SourceManager
+from evenflow.readconf import Conf
+from evenflow.helpers.unreliableset import UnreliableSet
 
 
 def load_unreliable(conf: Conf) -> UnreliableSet:
@@ -80,10 +79,10 @@ async def main(loop: asyncio.events, conf: Conf) -> float:
 
 if __name__ == '__main__':
     c = Conf(
-        host_cache='./data/ip_tracker.json',
-        unreliable='./data/fake_stripped.json',
-        backup_file_path='./data/backup.json',
-        config_file='./data/conf.json'
+        host_cache='../data/ip_tracker.json',
+        unreliable='../data/fake_stripped.json',
+        backup_file_path='../data/backup.json',
+        config_file='../data/conf.json'
     )
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
     event_loop = asyncio.get_event_loop()

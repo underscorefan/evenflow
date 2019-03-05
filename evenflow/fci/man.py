@@ -1,14 +1,13 @@
 import asyncio
-
-from messages import LinkContainer
 from .source import SourceSpider
 from typing import List, ItemsView, Tuple, Dict
 from aiohttp import ClientSession
 from collections import defaultdict
-from helpers.func import mmap
-from helpers.hostracker import HostTracker
-from helpers.unreliableset import UnreliableSet
-from helpers.req import maintain_netloc
+from evenflow.helpers.func import mmap
+from evenflow.helpers.hostracker import HostTracker
+from evenflow.helpers.unreliableset import UnreliableSet
+from evenflow.helpers.req import maintain_netloc
+from evenflow.messages import LinkContainer
 
 
 class SourceManager:

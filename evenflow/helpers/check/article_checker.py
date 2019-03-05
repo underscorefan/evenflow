@@ -1,5 +1,5 @@
 from typing import Optional
-from messages import ArticleExtended
+from evenflow.messages import ArticleExtended
 
 
 class ArticleChecker:

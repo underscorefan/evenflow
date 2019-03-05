@@ -2,11 +2,11 @@ import abc
 import re
 from aiohttp import ClientSession
 from aiohttp.client_exceptions import InvalidURL
-from messages.article_ext import ArticleExtended
-from helpers.req import fetch_html_get, urlman
 from newspaper.configuration import Configuration
-from helpers.unreliableset import UnreliableSet
 from typing import Optional
+from evenflow.messages.article_ext import ArticleExtended
+from evenflow.helpers.req import fetch_html_get, urlman
+from evenflow.helpers.unreliableset import UnreliableSet
 
 
 class Extractor(abc.ABC):
@@ -53,7 +53,7 @@ class Archive(ArticleExtractor):
 
         try:
             url = article.soup.select_one("#HEADER > table input")["value"]
-        except KeyError:
+        except (KeyError, TypeError):
             return None
 
         if self.unrel.contains(url):

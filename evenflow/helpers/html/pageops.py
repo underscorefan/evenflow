@@ -4,8 +4,8 @@ from typing import Callable
 from aiohttp import ClientSession
 from bs4 import BeautifulSoup
 
-from helpers.func import mmap
-from helpers.req import url_to_soup
+from evenflow.helpers.func import mmap
+from evenflow.helpers.req import url_to_soup
 
 
 class PageOps:

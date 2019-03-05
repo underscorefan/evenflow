@@ -1,6 +1,6 @@
 from typing import List
-from dbops import QueryManager
-from messages import ArticleExtended, Error
+from evenflow.dbops import QueryManager
+from evenflow.messages import ArticleExtended, Error
 import asyncpg
 import asyncio
 
