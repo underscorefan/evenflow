@@ -76,7 +76,7 @@ def __make_dict(cli: argparse.Namespace) -> Dict[str, str]:
     }
 
 
-def read_conf() -> Conf:
+def conf_from_cli() -> Conf:
     cli = read_cli_args()
     cli_dict = __make_dict(cli)
     if cli.path is not None:
