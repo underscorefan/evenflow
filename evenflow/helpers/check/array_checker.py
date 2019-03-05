@@ -1,7 +1,7 @@
-from typing import List, Callable
+from typing import List, Callable, Any
 
 
-def check_list(lst: List, condition: Callable[[any, ], bool], apply: Callable[[any,], any]) -> List:
+def check_list(lst: List, condition: Callable[[Any, ], bool], apply: Callable[[Any, ], Any]) -> List:
     return [apply(element) for element in lst if condition(element)]
 
 
