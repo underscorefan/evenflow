@@ -1,10 +1,12 @@
 import asyncio
-from .fci import SourceSpider
-from typing import List, Optional
-from .helpers.hostracker import HostTracker
-from .helpers.unreliableset import UnreliableSet
-from .helpers.file import read_json_from
-from .dbops import DatabaseCredentials
+import argparse
+import os
+from typing import List, Optional, Dict
+from evenflow.helpers.hostracker import HostTracker
+from evenflow.helpers.unreliableset import UnreliableSet
+from evenflow.helpers.file import read_json_from
+from evenflow.dbops import DatabaseCredentials
+from evenflow.fci import SourceSpider
 
 
 class Conf:
@@ -53,3 +55,30 @@ class Conf:
             return DatabaseCredentials(user=pg["user"], password=pg["pwd"], name=pg["db"], host=pg["host"])
         except KeyError:
             return None
+
+
+def read_cli_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="fetching articles from the web")
+    parser.add_argument('-t', '--tracker', help="specify host ip json file", required=True, type=str)
+    parser.add_argument('-u', '--unreliable', help="specify unreliable hosts json file", required=True, type=str)
+    parser.add_argument('-b', '--backup', help="specify where to save back-up", required=True, type=str)
+    parser.add_argument('-c', '--conf', help="specify config file location", required=True, type=str)
+    parser.add_argument('-p', '--path', help="base path for files", type=str, default=None)
+    return parser.parse_args()
+
+
+def __make_dict(cli: argparse.Namespace) -> Dict[str, str]:
+    return {
+        'backup_file_path': cli.backup,
+        'config_file': cli.conf,
+        'host_cache': cli.tracker,
+        'unreliable': cli.unreliable
+    }
+
+
+def read_conf() -> Conf:
+    cli = read_cli_args()
+    cli_dict = __make_dict(cli)
+    if cli.path is not None:
+        cli_dict = {arg: os.path.join(cli.path, value) for arg, value in cli_dict.items()}
+    return Conf(**cli_dict)

@@ -4,7 +4,7 @@ import time
 from aiohttp import ClientSession
 from evenflow import consumers
 from evenflow.fci import SourceManager
-from evenflow.readconf import Conf
+from evenflow.readconf import Conf, read_conf
 from evenflow.helpers.unreliableset import UnreliableSet
 
 
@@ -78,12 +78,8 @@ async def main(loop: asyncio.events, conf: Conf) -> float:
     return scrape_time
 
 if __name__ == '__main__':
-    c = Conf(
-        host_cache='../data/ip_tracker.json',
-        unreliable='../data/fake_stripped.json',
-        backup_file_path='../data/backup.json',
-        config_file='../data/conf.json'
-    )
+    c = read_conf()
+
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
     event_loop = asyncio.get_event_loop()
 
