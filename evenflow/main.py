@@ -20,7 +20,7 @@ def load_unreliable(conf: Conf) -> UnreliableSet:
 
 async def sources_layer(loop: asyncio.events, conf: Conf, unreliable: UnreliableSet, sq: asyncio.Queue) -> float:
 
-    source_man = SourceManager(sources=conf.get_sources(), tracker=conf.load_host_tracker(loop), unrel=unreliable)
+    source_man = SourceManager(sources=conf.load_sources(), tracker=conf.load_host_tracker(loop), unrel=unreliable)
     s = time.perf_counter()
 
     async with ClientSession() as session:
@@ -86,5 +86,7 @@ if __name__ == '__main__':
     try:
         exec_time = event_loop.run_until_complete(main(loop=event_loop, conf=c))
         print(f"job executed in {exec_time:0.2f} seconds.")
+    except Exception as e:
+        print(e)
     finally:
         event_loop.close()

@@ -7,34 +7,18 @@ from evenflow.helpers.unreliableset import UnreliableSet
 from evenflow.helpers.file import read_json_from
 from evenflow.dbops import DatabaseCredentials
 from evenflow.fci import SourceSpider
+from evenflow.pkginfo import short_description
 
 
 class Conf:
     def __init__(self, host_cache: str, unreliable: str, backup_file_path: str, config_file: str):
+        config_data = read_json_from(config_file)
         self.host_cache = host_cache
         self.unreliable = unreliable
         self.backup_file_path = backup_file_path
-        self.sources = [
-            SourceSpider(
-                name="snopes",
-                page_to_scrape="https://www.snopes.com/fact-check/rating/false/",
-                next_page="div.pagination > a.btn-next",
-                articles="div.list-group > article.list-group-item > a",
-                text_anchors=".post-body-card a",
-                num_pages=1,
-                is_fake=True
-            ),
-            SourceSpider(
-                name="truth_or_fiction",
-                page_to_scrape="https://www.truthorfiction.com/category/fact-checks/disinformation/",
-                next_page="a.next",
-                articles="#content-wrapper > div.container > div.row > div > div.tt-post > div > a.tt-post-title.c-h5",
-                text_anchors="div.simple-text a",
-                num_pages=1,
-                is_fake=True
-            ),
-        ]
-        self.pg_cred = read_json_from(config_file).get("pg_cred")
+        self.sources: Optional[List[SourceSpider]] = None
+        self.sources_json = config_data.get("sources")
+        self.pg_cred = config_data.get("pg_cred")
 
     def load_host_tracker(self, loop: asyncio.events) -> HostTracker:
         to_ret = HostTracker(loop=loop)
@@ -43,8 +27,26 @@ class Conf:
         finally:
             return to_ret
 
-    def get_sources(self) -> List[SourceSpider]:
-        return self.sources
+    def load_sources(self) -> List[SourceSpider]:
+        return self.__load_sources() if self.sources is None else self.sources
+
+    def __load_sources(self) -> Optional[List[SourceSpider]]:
+        try:
+            self.sources = [
+                SourceSpider(
+                    name=source['name'],
+                    page_to_scrape=source['feed_url'],
+                    next_page=source['selectors']['next'],
+                    articles=source['selectors']['feed_entries'],
+                    text_anchors=source['selectors']['links_in_article'],
+                    num_pages=source['reach_page'],
+                    is_fake=source['mark_as_fake']
+                )
+                for source in self.sources_json
+            ]
+            return self.sources
+        except KeyError:
+            return None
 
     def load_unreliable(self) -> UnreliableSet:
         return UnreliableSet(initial_set=set(read_json_from(self.unreliable)))
@@ -58,7 +60,7 @@ class Conf:
 
 
 def read_cli_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="fetching articles from the web")
+    parser = argparse.ArgumentParser(description=short_description)
     parser.add_argument('-t', '--tracker', help="specify host ip json file", required=True, type=str)
     parser.add_argument('-u', '--unreliable', help="specify unreliable hosts json file", required=True, type=str)
     parser.add_argument('-b', '--backup', help="specify where to save back-up", required=True, type=str)
