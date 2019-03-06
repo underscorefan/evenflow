@@ -39,6 +39,7 @@ async def main(loop: asyncio.events, conf: Conf) -> float:
     print("about to create pool")
     pg_pool = await conf.setupdb().make_pool()
 
+    # TODO create a function for this mess
     consumer_jobs = [
         asyncio.ensure_future(
             consumers.article.default_handle_links(
@@ -47,20 +48,23 @@ async def main(loop: asyncio.events, conf: Conf) -> float:
                 error=q[e],
                 backup_path=conf.backup_file_path,
                 unrel=unreliable_set
-            )
+            ),
+            loop=loop
         ),
         asyncio.ensure_future(
             consumers.pg.store_articles(
                 pool=pg_pool,
                 storage_queue=q[a],
                 error_queue=q[e]
-            )
+            ),
+            loop=loop
         ),
         asyncio.ensure_future(
             consumers.pg.store_errors(
                 pool=pg_pool,
                 error_queue=q[e]
-            )
+            ),
+            loop=loop
         ),
     ]
 
@@ -87,7 +91,7 @@ if __name__ == '__main__':
     try:
         exec_time = event_loop.run_until_complete(main(loop=event_loop, conf=c))
         print(f"job executed in {exec_time:0.2f} seconds.")
-    except Exception as e:
-        print(exc.get_name(e))
+    except Exception as err:
+        print(exc.get_name(err))
     finally:
         event_loop.close()
