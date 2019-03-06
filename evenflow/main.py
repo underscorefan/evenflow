@@ -6,6 +6,7 @@ from evenflow import consumers
 from evenflow.fci import SourceManager
 from evenflow.readconf import Conf, conf_from_cli
 from evenflow.helpers.unreliableset import UnreliableSet
+from evenflow.helpers import exc
 
 
 def load_unreliable(conf: Conf) -> UnreliableSet:
@@ -87,6 +88,6 @@ if __name__ == '__main__':
         exec_time = event_loop.run_until_complete(main(loop=event_loop, conf=c))
         print(f"job executed in {exec_time:0.2f} seconds.")
     except Exception as e:
-        print(e)
+        print(exc.get_name(e))
     finally:
         event_loop.close()

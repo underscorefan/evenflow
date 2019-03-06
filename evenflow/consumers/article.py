@@ -1,13 +1,14 @@
 import asyncio
 
 from typing import Optional, List, Dict
-from aiohttp import TCPConnector, ClientSession, ServerDisconnectedError
+from aiohttp import TCPConnector, ClientSession
 from newspaper.configuration import Configuration
 from evenflow.ade import scraper_factory
 from evenflow.helpers.check.article_checker import ArticleChecker
 from evenflow.helpers.file import asy_write_json
 from evenflow.helpers.unreliableset import UnreliableSet
 from evenflow.helpers.req.headers import firefox
+from evenflow.helpers.exc import get_name
 from evenflow.messages import LinkContainer, ArticleExtended, Error
 
 
@@ -104,13 +105,13 @@ async def handle_links(sc: ArticleStreamConfiguration, queues: ArticleStreamQueu
             article_container = ArticleContainer()
             for link, item in link_container.items():
                 source, fake = item
-                scraper = scraper_factory(link=link, source=source, unreliable=unreliable, fake=fake)
                 try:
+                    scraper = scraper_factory(link=link, source=source, unreliable=unreliable, fake=fake)
                     msg = article_container.add_article(await scraper.get_data(session, sc.newspaper_conf))
                     if msg is not None:
                         print(msg)
-                except ServerDisconnectedError:
-                    await queues.send_error(message='Server Disconnected', link=link, source=source)
+                except Exception as e:
+                    await queues.send_error(message=get_name(e), link=link, source=source)
             await queues.send_articles(article_container.get_articles())
             await backup_manager.store(link_container.backup)
             queues.mark_links()
