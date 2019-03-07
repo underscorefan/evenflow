@@ -39,34 +39,26 @@ async def main(loop: asyncio.events, conf: Conf) -> float:
     print("about to create pool")
     pg_pool = await conf.setupdb().make_pool()
 
-    # TODO create a function for this mess
-    consumer_jobs = [
-        asyncio.ensure_future(
-            consumers.article.default_handle_links(
-                links=q[s],
-                storage=q[a],
-                error=q[e],
-                backup_path=conf.backup_file_path,
-                unrel=unreliable_set
-            ),
-            loop=loop
+    futures = [
+        consumers.article.default_handle_links(
+            links=q[s],
+            storage=q[a],
+            error=q[e],
+            backup_path=conf.backup_file_path,
+            unrel=unreliable_set
         ),
-        asyncio.ensure_future(
-            consumers.pg.store_articles(
-                pool=pg_pool,
-                storage_queue=q[a],
-                error_queue=q[e]
-            ),
-            loop=loop
+        consumers.pg.store_articles(
+            pool=pg_pool,
+            storage_queue=q[a],
+            error_queue=q[e]
         ),
-        asyncio.ensure_future(
-            consumers.pg.store_errors(
-                pool=pg_pool,
-                error_queue=q[e]
-            ),
-            loop=loop
-        ),
+        consumers.pg.store_errors(
+            pool=pg_pool,
+            error_queue=q[e]
+        )
     ]
+
+    consumer_jobs = [asyncio.ensure_future(future, loop=event_loop) for future in futures]
 
     scrape_time = await sources_layer(loop=loop, conf=conf, sq=q[s], unreliable=unreliable_set)
 
