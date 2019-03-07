@@ -84,6 +84,6 @@ if __name__ == '__main__':
         exec_time = event_loop.run_until_complete(main(loop=event_loop, conf=c))
         print(f"job executed in {exec_time:0.2f} seconds.")
     except Exception as err:
-        print(exc.get_name(err))
+        print(err)
     finally:
         event_loop.close()

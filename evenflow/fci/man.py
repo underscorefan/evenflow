@@ -1,5 +1,5 @@
 import asyncio
-from .source import SourceSpider
+from .source import FeedReaderHTML
 from typing import List, ItemsView, Tuple, Dict
 from aiohttp import ClientSession
 from collections import defaultdict
@@ -8,10 +8,11 @@ from evenflow.helpers.hostracker import HostTracker
 from evenflow.helpers.unreliableset import UnreliableSet
 from evenflow.helpers.req import maintain_netloc
 from evenflow.messages import LinkContainer
+from .source import FeedResult
 
 
 class SourceManager:
-    def __init__(self, sources: List[SourceSpider], tracker: HostTracker, unrel: UnreliableSet):
+    def __init__(self, sources: List[FeedReaderHTML], tracker: HostTracker, unrel: UnreliableSet):
         self.original_sources = sources
         self.tracker = tracker
         self.unrel = unrel
@@ -23,15 +24,16 @@ class SourceManager:
 
             all_links = dict()
             backup = dict()
-            sources: List[SourceSpider] = []
+            sources: List[FeedReaderHTML] = []
 
             for result in await asyncio.gather(*coroutines):
-                mmap(result.next_spider, sources.append)
+                feed_result: FeedResult = result
+                mmap(feed_result.next_reader, sources.append)
                 all_links = {
                     **all_links,
-                    **({k: v for k, v in result.links.items() if self.unrel.contains(k)})
+                    **({k: v for k, v in feed_result.links.items() if self.unrel.contains(k)})
                 }
-                backup[result.old_spider.name] = result.old_spider.to_dict()
+                backup[feed_result.current_reader.name] = feed_result.current_reader.to_dict()
 
             await q.put(LinkContainer(links=all_links, backup=backup))
 

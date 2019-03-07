@@ -34,5 +34,5 @@ async def store_errors(pool: asyncpg.pool.Pool, error_queue: asyncio.Queue):
             try:
                 await connection.execute(query_builder.make_insert(), *query_builder.sort_args(error.to_sql_dict()))
             except Exception as e:
-                print(exc.get_name(e))
+                print(e)
         error_queue.task_done()

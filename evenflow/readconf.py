@@ -6,7 +6,7 @@ from evenflow.helpers.hostracker import HostTracker
 from evenflow.helpers.unreliableset import UnreliableSet
 from evenflow.helpers.file import read_json_from
 from evenflow.dbops import DatabaseCredentials
-from evenflow.fci import SourceSpider
+from evenflow.fci import FeedReaderHTML
 from evenflow.pkginfo import short_description
 
 
@@ -16,7 +16,7 @@ class Conf:
         self.host_cache = host_cache
         self.unreliable = unreliable
         self.backup_file_path = backup_file_path
-        self.sources: Optional[List[SourceSpider]] = None
+        self.sources: Optional[List[FeedReaderHTML]] = None
         self.sources_json = config_data.get("sources")
         self.pg_cred = config_data.get("pg_cred")
 
@@ -27,21 +27,13 @@ class Conf:
         finally:
             return to_ret
 
-    def load_sources(self) -> List[SourceSpider]:
+    def load_sources(self) -> List[FeedReaderHTML]:
         return self.__load_sources() if self.sources is None else self.sources
 
-    def __load_sources(self) -> Optional[List[SourceSpider]]:
+    def __load_sources(self) -> Optional[List[FeedReaderHTML]]:
         try:
             self.sources = [
-                SourceSpider(
-                    name=source['name'],
-                    page_to_scrape=source['feed_url'],
-                    next_page=source['selectors']['next'],
-                    articles=source['selectors']['feed_entries'],
-                    text_anchors=source['selectors']['links_in_article'],
-                    num_pages=source['reach_page'],
-                    is_fake=source['mark_as_fake']
-                )
+                FeedReaderHTML(**{k: v for k, v in source.items() if k != "type"})
                 for source in self.sources_json
             ]
             return self.sources
