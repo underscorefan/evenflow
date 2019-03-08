@@ -1,14 +1,16 @@
 import asyncio
-from .source import FeedReaderHTML
+
 from typing import List, ItemsView, Tuple, Dict
 from aiohttp import ClientSession
 from collections import defaultdict
+
 from evenflow.helpers.func import mmap
 from evenflow.helpers.hostracker import HostTracker
 from evenflow.helpers.unreliableset import UnreliableSet
 from evenflow.helpers.req import maintain_netloc
 from evenflow.messages import LinkContainer
-from .source import FeedResult
+
+from .source import FeedResult, FeedReaderHTML
 
 
 class SourceManager:
