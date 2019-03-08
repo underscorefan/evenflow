@@ -8,7 +8,7 @@ from evenflow.helpers import exc
 
 
 async def store_articles(pool: asyncpg.pool.Pool, storage_queue: asyncio.Queue, error_queue: asyncio.Queue):
-    query_builder = QueryManager(columns=ArticleExtended.columns(), table='articles')
+    query_builder = QueryManager(columns=ArticleExtended.columns(), table='article')
     while True:
         articles: List[ArticleExtended] = await storage_queue.get()
         print(f'received {len(articles)} articles')
@@ -27,7 +27,7 @@ async def store_articles(pool: asyncpg.pool.Pool, storage_queue: asyncio.Queue, 
 
 
 async def store_errors(pool: asyncpg.pool.Pool, error_queue: asyncio.Queue):
-    query_builder = QueryManager(columns=Error.columns(), table='errors')
+    query_builder = QueryManager(columns=Error.columns(), table='error')
     while True:
         error: Error = await error_queue.get()
         async with pool.acquire() as connection:

@@ -43,6 +43,9 @@ class Conf:
     def load_unreliable(self) -> UnreliableSet:
         return UnreliableSet(initial_set=set(read_json_from(self.unreliable)))
 
+    def load_backup(self) -> Dict:
+        return read_json_from(self.backup_file_path)
+
     def setupdb(self) -> Optional[DatabaseCredentials]:
         try:
             pg = self.pg_cred

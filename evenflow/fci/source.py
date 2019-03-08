@@ -4,8 +4,9 @@ from typing import List, Tuple, Optional, Dict
 from evenflow.helpers.func import mmap
 from evenflow.helpers.html import PageOps
 
-ps = 'page_scraped'
-pn = 'page_number'
+
+_ps = 'page_scraped'
+_pn = 'page_number'
 
 
 class Selectors:
@@ -21,22 +22,27 @@ class Reader(abc.ABC):
     async def fetch_links(self, session: ClientSession) -> 'FeedResult':
         pass
 
+    @abc.abstractmethod
+    def update_from_backup(self, bkp: Dict):
+        pass
+
 
 class FeedReader:
+
     def __init__(self, name: str, url: str, stop_after: int):
         self.name = name
         self.url = url
         self.stop_after = stop_after
 
     def to_dict(self) -> Dict:
-        return {ps: self.url, pn: self.stop_after}
+        return {_ps: self.url, _pn: self.stop_after}
 
-
-def bsd_from_dict(name, data: Dict) -> Optional[FeedReader]:
-    try:
-        return FeedReader(name=name, url=data[ps], stop_after=data[pn])
-    except (KeyError, ValueError):
-        return None
+    @staticmethod
+    def from_dict(name: str, data: Dict) -> Optional['FeedReader']:
+        try:
+            return FeedReader(name=name, url=data[_ps], stop_after=data[_pn])
+        except (KeyError, ValueError):
+            return None
 
 
 class FeedReaderHTML(FeedReader):
@@ -60,8 +66,9 @@ class FeedReaderHTML(FeedReader):
             .do_ops(session)
         return res[k_art], res[k_n]
 
-    async def search_for_links(self, session: ClientSession) -> 'FeedResult':
+    async def search_for_links(self, session: ClientSession) -> Optional['FeedResult']:
         feed_links, next_page = await self.fetch_list(session)
+
         links_from_articles = await self.__get_links_from(session, *feed_links)
         return FeedResult(
             links=links_from_articles,
@@ -72,6 +79,7 @@ class FeedReaderHTML(FeedReader):
     def __new_page(self, new_page_url: str) -> Optional['FeedReaderHTML']:
         if self.stop_after == 0:
             return None
+
         return FeedReaderHTML(
             name=self.name,
             url=new_page_url,
