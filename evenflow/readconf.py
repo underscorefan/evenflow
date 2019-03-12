@@ -1,7 +1,9 @@
 import asyncio
 import argparse
 import os
-from typing import List, Optional, Dict
+
+from typing import List, Optional, Dict, DefaultDict
+
 from evenflow.helpers.hostracker import HostTracker
 from evenflow.helpers.unreliableset import UnreliableSet
 from evenflow.helpers.file import read_json_from
@@ -32,10 +34,20 @@ class Conf:
 
     def __load_sources(self) -> Optional[List[FeedReaderHTML]]:
         try:
-            self.sources = [
-                FeedReaderHTML(**{k: v for k, v in source.items() if k != "type"})
-                for source in self.sources_json
-            ]
+            bkp = self.__load_backup()
+
+            for s in self.sources_json:
+                reader = FeedReaderHTML(**{k: v for k, v in s.items() if k != "type"})
+                maybe_backup = bkp.get(reader.name)
+
+                if maybe_backup:
+                    reader.recover_state(maybe_backup)
+
+                if not self.sources:
+                    self.sources = []
+
+                self.sources.append(reader)
+
             return self.sources
         except KeyError:
             return None
@@ -43,13 +55,17 @@ class Conf:
     def load_unreliable(self) -> UnreliableSet:
         return UnreliableSet(initial_set=set(read_json_from(self.unreliable)))
 
-    def load_backup(self) -> Dict:
+    def __load_backup(self) -> Dict[str, Dict[str, str]]:
         return read_json_from(self.backup_file_path)
 
     def setupdb(self) -> Optional[DatabaseCredentials]:
         try:
-            pg = self.pg_cred
-            return DatabaseCredentials(user=pg["user"], password=pg["pwd"], name=pg["db"], host=pg["host"])
+            return DatabaseCredentials(
+                user=self.pg_cred["user"],
+                password=self.pg_cred["pwd"],
+                name=self.pg_cred["db"],
+                host=self.pg_cred["host"]
+            )
         except KeyError:
             return None
 

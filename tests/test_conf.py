@@ -13,8 +13,11 @@ def test_conf_sources():
     sources = c.load_sources()
     expected = 2
 
+    one_expected = {
+        "after": 93,
+        "url": "https://fndet.com/arch/fake/page/8/"
+    }
+
     assert sources is not None
     assert len([s.name for s in sources if s.name in name_set]) == expected
-
-    backup = c.load_backup()
-    print(backup)
+    assert len([s for s in sources if s.stop_after == one_expected["after"] and s.url == one_expected["url"]]) == 1

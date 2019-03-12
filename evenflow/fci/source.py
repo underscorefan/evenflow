@@ -1,8 +1,9 @@
 import abc
 from aiohttp import ClientSession
-from typing import List, Tuple, Optional, Dict
+from typing import List, Tuple, Optional, Dict, Union
 from evenflow.helpers.func import mmap
 from evenflow.helpers.html import PageOps
+from .state import State
 
 
 _ps = 'page_scraped'
@@ -23,31 +24,18 @@ class Reader(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def update_from_backup(self, bkp: Dict):
+    def recover_state(self, bkp: State):
         pass
 
 
-class FeedReader:
+class FeedReaderHTML(Reader):
+    async def fetch_links(self, session: ClientSession) -> 'FeedResult':
+        pass
 
-    def __init__(self, name: str, url: str, stop_after: int):
+    def __init__(self, name: str, url: str, sel: Union[Dict, Selectors], stop_after: int, fake_news: bool):
         self.name = name
         self.url = url
         self.stop_after = stop_after
-
-    def to_dict(self) -> Dict:
-        return {_ps: self.url, _pn: self.stop_after}
-
-    @staticmethod
-    def from_dict(name: str, data: Dict) -> Optional['FeedReader']:
-        try:
-            return FeedReader(name=name, url=data[_ps], stop_after=data[_pn])
-        except (KeyError, ValueError):
-            return None
-
-
-class FeedReaderHTML(FeedReader):
-    def __init__(self, name: str, url: str, sel: Selectors, stop_after: int, fake_news: bool):
-        super().__init__(name, url, stop_after)
         self.sel = Selectors(**sel) if isinstance(sel, dict) else sel
         self.fake_news = fake_news
 
@@ -56,6 +44,10 @@ class FeedReaderHTML(FeedReader):
 
     def set_stop_after(self, num_page: int):
         self.stop_after = num_page
+
+    def recover_state(self, bkp: State):
+        self.url = bkp.data['url']
+        self.stop_after = bkp.data['stop']
 
     async def fetch_list(self, session: ClientSession) -> Tuple[List[str], str]:
         wr = PageOps(self.url, max_workers=2)
@@ -68,12 +60,11 @@ class FeedReaderHTML(FeedReader):
 
     async def search_for_links(self, session: ClientSession) -> Optional['FeedResult']:
         feed_links, next_page = await self.fetch_list(session)
-
         links_from_articles = await self.__get_links_from(session, *feed_links)
         return FeedResult(
             links=links_from_articles,
             next_reader=mmap(next_page, self.__new_page),
-            current_reader=self
+            current_reader_state=self.__to_state(next_page)
         )
 
     def __new_page(self, new_page_url: str) -> Optional['FeedReaderHTML']:
@@ -107,8 +98,8 @@ class FeedResult:
             self,
             links: Dict[str, Tuple[str, bool]],
             next_reader: Optional[FeedReaderHTML],
-            current_reader: FeedReaderHTML
+            current_reader_state: State
     ):
         self.links = links
         self.next_reader = next_reader
-        self.current_reader = current_reader
+        self.current_reader_state = current_reader_state
