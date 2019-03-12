@@ -9,6 +9,9 @@ from .state import State
 _ps = 'page_scraped'
 _pn = 'page_number'
 
+URL = 'url'
+PAGE = 'page'
+
 
 class Selectors:
     def __init__(self, nextp: str, entries: str, links: str):
@@ -24,14 +27,11 @@ class Reader(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def recover_state(self, bkp: State):
+    def recover_state(self, state: State):
         pass
 
 
 class FeedReaderHTML(Reader):
-    async def fetch_links(self, session: ClientSession) -> 'FeedResult':
-        pass
-
     def __init__(self, name: str, url: str, sel: Union[Dict, Selectors], stop_after: int, fake_news: bool):
         self.name = name
         self.url = url
@@ -45,9 +45,9 @@ class FeedReaderHTML(Reader):
     def set_stop_after(self, num_page: int):
         self.stop_after = num_page
 
-    def recover_state(self, bkp: State):
-        self.url = bkp.data['url']
-        self.stop_after = bkp.data['stop']
+    def recover_state(self, state: State):
+        self.url = state.data[URL]
+        self.stop_after = state.data.get[PAGE]
 
     async def fetch_list(self, session: ClientSession) -> Tuple[List[str], str]:
         wr = PageOps(self.url, max_workers=2)
@@ -58,7 +58,7 @@ class FeedReaderHTML(Reader):
             .do_ops(session)
         return res[k_art], res[k_n]
 
-    async def search_for_links(self, session: ClientSession) -> Optional['FeedResult']:
+    async def fetch_links(self, session: ClientSession) -> 'FeedResult':
         feed_links, next_page = await self.fetch_list(session)
         links_from_articles = await self.__get_links_from(session, *feed_links)
         return FeedResult(
@@ -66,6 +66,15 @@ class FeedReaderHTML(Reader):
             next_reader=mmap(next_page, self.__new_page),
             current_reader_state=self.__to_state(next_page)
         )
+
+    def __to_state(self, next_page: Optional[str]) -> State:
+        return State(
+            name=self.name,
+            is_over=next_page is not None,
+            data={
+                URL: self.url,
+                PAGE: self.stop_after
+            })
 
     def __new_page(self, new_page_url: str) -> Optional['FeedReaderHTML']:
         if self.stop_after == 0:

@@ -22,7 +22,7 @@ class SourceManager:
     async def fetch_articles(self, session: ClientSession, q: asyncio.Queue):
         sources = self.original_sources
         while len(sources) > 0:
-            coroutines = [source.search_for_links(session) for source in sources]
+            coroutines = [source.fetch_links(session) for source in sources]
 
             all_links = dict()
             backup = dict()
