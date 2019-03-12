@@ -79,7 +79,7 @@ if __name__ == '__main__':
 
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
     event_loop = asyncio.get_event_loop()
-
+    c.load_sources()
     try:
         exec_time = event_loop.run_until_complete(main(loop=event_loop, conf=c))
         print(f"job executed in {exec_time:0.2f} seconds.")

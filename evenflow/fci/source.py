@@ -17,7 +17,7 @@ class Selectors:
         self.links = links
 
 
-class Reader(abc.ABC):
+class FeedReader(abc.ABC):
 
     @abc.abstractmethod
     async def fetch_links(self, session: ClientSession) -> 'FeedResult':
@@ -28,7 +28,7 @@ class Reader(abc.ABC):
         pass
 
 
-class FeedReaderHTML(Reader):
+class FeedReaderHTML(FeedReader):
     def __init__(self, name: str, url: str, sel: Union[Dict, Selectors], stop_after: int, fake_news: bool):
         self.name = name
         self.url = url
@@ -36,12 +36,7 @@ class FeedReaderHTML(Reader):
         self.sel = Selectors(**sel) if isinstance(sel, dict) else sel
         self.fake_news = fake_news
 
-    def set_page_to_scrape(self, page_url: str):
-        self.url = page_url
-
-    def set_stop_after(self, num_page: int):
-        self.stop_after = num_page
-
+    # TODO return some flag or raise an exception is state signals that the job is over
     def recover_state(self, state: State):
         self.url = state.data[URL]
         self.stop_after = state.data[PAGE]
@@ -57,17 +52,18 @@ class FeedReaderHTML(Reader):
 
     async def fetch_links(self, session: ClientSession) -> 'FeedResult':
         feed_links, next_page = await self.fetch_list(session)
-        links_from_articles = await self.__get_links_from(session, *feed_links)
+        next_reader = mmap(next_page, self.__new_page)
+
         return FeedResult(
-            links=links_from_articles,
-            next_reader=mmap(next_page, self.__new_page),
-            current_reader_state=self.__to_state(next_page)
+            links=await self.__get_links_from(session, *feed_links),
+            next_reader=next_reader,
+            current_reader_state=self.__to_state(over=next_reader is None)
         )
 
-    def __to_state(self, next_page: Optional[str]) -> State:
+    def __to_state(self, over: bool) -> State:
         return State(
             name=self.name,
-            is_over=next_page is not None,
+            is_over=over,
             data={
                 URL: self.url,
                 PAGE: self.stop_after
@@ -103,7 +99,7 @@ class FeedResult:
     def __init__(
             self,
             links: Dict[str, Tuple[str, bool]],
-            next_reader: Optional[FeedReaderHTML],
+            next_reader: Optional[FeedReader],
             current_reader_state: State
     ):
         self.links = links

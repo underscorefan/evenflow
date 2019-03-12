@@ -13,6 +13,7 @@ from evenflow.messages import LinkContainer
 from .source import FeedResult, FeedReaderHTML
 
 
+# TODO move this in producers module
 class SourceManager:
     def __init__(self, sources: List[FeedReaderHTML], tracker: HostTracker, unrel: UnreliableSet):
         self.original_sources = sources

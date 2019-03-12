@@ -34,6 +34,7 @@ class Conf:
 
     def __load_sources(self) -> Optional[List[FeedReaderHTML]]:
         try:
+            # TODO make it optional and use another function if file doesn't exist
             bkp = self.__load_backup()
 
             for s in self.sources_json:
@@ -55,8 +56,11 @@ class Conf:
     def load_unreliable(self) -> UnreliableSet:
         return UnreliableSet(initial_set=set(read_json_from(self.unreliable)))
 
-    def __load_backup(self) -> Dict[str, Dict[str, str]]:
-        return read_json_from(self.backup_file_path)
+    def __load_backup(self) -> Dict[str, Dict]:
+        try:
+            return read_json_from(self.backup_file_path)
+        except FileNotFoundError:
+            return {}
 
     def setupdb(self) -> Optional[DatabaseCredentials]:
         try:
