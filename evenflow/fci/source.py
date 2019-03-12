@@ -6,9 +6,6 @@ from evenflow.helpers.html import PageOps
 from .state import State
 
 
-_ps = 'page_scraped'
-_pn = 'page_number'
-
 URL = 'url'
 PAGE = 'page'
 
@@ -47,7 +44,7 @@ class FeedReaderHTML(Reader):
 
     def recover_state(self, state: State):
         self.url = state.data[URL]
-        self.stop_after = state.data.get[PAGE]
+        self.stop_after = state.data[PAGE]
 
     async def fetch_list(self, session: ClientSession) -> Tuple[List[str], str]:
         wr = PageOps(self.url, max_workers=2)
