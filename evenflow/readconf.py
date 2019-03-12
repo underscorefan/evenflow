@@ -2,13 +2,13 @@ import asyncio
 import argparse
 import os
 
-from typing import List, Optional, Dict, DefaultDict
+from typing import List, Optional, Dict
 
 from evenflow.helpers.hostracker import HostTracker
 from evenflow.helpers.unreliableset import UnreliableSet
 from evenflow.helpers.file import read_json_from
 from evenflow.dbops import DatabaseCredentials
-from evenflow.fci import FeedReaderHTML
+from evenflow.fci import FeedReaderHTML, State
 from evenflow.pkginfo import short_description
 
 
@@ -41,7 +41,7 @@ class Conf:
                 maybe_backup = bkp.get(reader.name)
 
                 if maybe_backup:
-                    reader.recover_state(maybe_backup)
+                    reader.recover_state(State.pack(reader.name, maybe_backup))
 
                 if not self.sources:
                     self.sources = []
