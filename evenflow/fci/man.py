@@ -35,7 +35,9 @@ class SourceManager:
                     **all_links,
                     **({k: v for k, v in feed_result.links.items() if self.unrel.contains(k)})
                 }
-                backup[feed_result.current_reader.name] = feed_result.current_reader.to_dict()
+
+                key, value = feed_result.current_reader_state.unpack()
+                backup[key] = value
 
             await q.put(LinkContainer(links=all_links, backup=backup))
 
