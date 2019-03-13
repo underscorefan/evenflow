@@ -10,12 +10,12 @@ from evenflow.helpers.unreliableset import UnreliableSet
 from evenflow.helpers.req import maintain_netloc
 from evenflow.messages import LinkContainer
 
-from .source import FeedResult, FeedReaderHTML
+from .source import FeedResult, FeedReaderHTML, FeedReader
 
 
 # TODO move this in producers module
 class SourceManager:
-    def __init__(self, sources: List[FeedReaderHTML], tracker: HostTracker, unrel: UnreliableSet):
+    def __init__(self, sources: List[FeedReader], tracker: HostTracker, unrel: UnreliableSet):
         self.original_sources = sources
         self.tracker = tracker
         self.unrel = unrel

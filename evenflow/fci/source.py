@@ -20,11 +20,19 @@ class Selectors:
 class FeedReader(abc.ABC):
 
     @abc.abstractmethod
+    def get_name(self) -> str:
+        pass
+
+    @abc.abstractmethod
+    def to_state(self, over: bool = False):
+        pass
+
+    @abc.abstractmethod
     async def fetch_links(self, session: ClientSession) -> 'FeedResult':
         pass
 
     @abc.abstractmethod
-    def recover_state(self, state: State):
+    def recover_state(self, state: State) -> bool:
         pass
 
 
@@ -36,10 +44,15 @@ class FeedReaderHTML(FeedReader):
         self.sel = Selectors(**sel) if isinstance(sel, dict) else sel
         self.fake_news = fake_news
 
-    # TODO return some flag or raise an exception is state signals that the job is over
-    def recover_state(self, state: State):
+    def get_name(self) -> str:
+        return self.name
+
+    def recover_state(self, state: State) -> bool:
+        if state.is_over:
+            return False
         self.url = state.data[URL]
         self.stop_after = state.data[PAGE]
+        return True
 
     async def fetch_list(self, session: ClientSession) -> Tuple[List[str], str]:
         wr = PageOps(self.url, max_workers=2)
@@ -57,10 +70,10 @@ class FeedReaderHTML(FeedReader):
         return FeedResult(
             links=await self.__get_links_from(session, *feed_links),
             next_reader=next_reader,
-            current_reader_state=self.__to_state(over=next_reader is None)
+            current_reader_state=self.to_state(over=next_reader is None)
         )
 
-    def __to_state(self, over: bool) -> State:
+    def to_state(self, over: bool = False) -> State:
         return State(
             name=self.name,
             is_over=over,

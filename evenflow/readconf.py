@@ -2,13 +2,13 @@ import asyncio
 import argparse
 import os
 
-from typing import List, Optional, Dict
-
+from typing import List, Optional, Dict, ItemsView
+from functools import partial
 from evenflow.helpers.hostracker import HostTracker
 from evenflow.helpers.unreliableset import UnreliableSet
 from evenflow.helpers.file import read_json_from
 from evenflow.dbops import DatabaseCredentials
-from evenflow.fci import FeedReaderHTML, State
+from evenflow.fci import State, FeedReader, FeedReaderHTML
 from evenflow.pkginfo import short_description
 
 
@@ -18,7 +18,6 @@ class Conf:
         self.host_cache = host_cache
         self.unreliable = unreliable
         self.backup_file_path = backup_file_path
-        self.sources: Optional[List[FeedReaderHTML]] = None
         self.sources_json = config_data.get("sources")
         self.pg_cred = config_data.get("pg_cred")
 
@@ -29,38 +28,43 @@ class Conf:
         finally:
             return to_ret
 
-    def load_sources(self) -> List[FeedReaderHTML]:
-        return self.__load_sources() if self.sources is None else self.sources
+    def load_sources(self) -> Optional[List[FeedReader]]:
+        bkp = self.__load_backup()
+        f = partial(self.__make_reader, bkp_obj=bkp)
 
-    def __load_sources(self) -> Optional[List[FeedReaderHTML]]:
         try:
-            # TODO make it optional and use another function if file doesn't exist
-            bkp = self.__load_backup()
+            return list(
+                filter(
+                    lambda x: x,
+                    [f(s.items()) for s in self.sources_json]
+                )
+            )
 
-            for s in self.sources_json:
-                reader = FeedReaderHTML(**{k: v for k, v in s.items() if k != "type"})
-                maybe_backup = bkp.get(reader.name)
-
-                if maybe_backup:
-                    reader.recover_state(State.pack(reader.name, maybe_backup))
-
-                if not self.sources:
-                    self.sources = []
-
-                self.sources.append(reader)
-
-            return self.sources
         except KeyError:
             return None
+
+    @staticmethod
+    def __make_reader(json_data: ItemsView, bkp_obj: Optional[Dict[str, Dict]]) -> Optional[FeedReader]:
+        reader = FeedReaderHTML(**{k: v for k, v in json_data if k != "type"})
+        if not bkp_obj:
+            return reader
+
+        old_state_obj = bkp_obj.get(reader.get_name())
+        if old_state_obj:
+            recovered = reader.recover_state(State.pack(reader.get_name(), old_state_obj))
+            if not recovered:
+                return None
+
+        return reader
 
     def load_unreliable(self) -> UnreliableSet:
         return UnreliableSet(initial_set=set(read_json_from(self.unreliable)))
 
-    def __load_backup(self) -> Dict[str, Dict]:
+    def __load_backup(self) -> Optional[Dict[str, Dict]]:
         try:
             return read_json_from(self.backup_file_path)
         except FileNotFoundError:
-            return {}
+            return None
 
     def setupdb(self) -> Optional[DatabaseCredentials]:
         try:

@@ -6,7 +6,6 @@ from evenflow import consumers
 from evenflow.fci import SourceManager
 from evenflow.readconf import Conf, conf_from_cli
 from evenflow.helpers.unreliableset import UnreliableSet
-from evenflow.helpers import exc
 
 
 def load_unreliable(conf: Conf) -> UnreliableSet:
@@ -20,8 +19,12 @@ def load_unreliable(conf: Conf) -> UnreliableSet:
 
 
 async def sources_layer(loop: asyncio.events, conf: Conf, unreliable: UnreliableSet, sq: asyncio.Queue) -> float:
+    sources = conf.load_sources()
+    if not sources or len(sources) == 0:
+        print("no sources to begin with")
+        return 0.0
 
-    source_man = SourceManager(sources=conf.load_sources(), tracker=conf.load_host_tracker(loop), unrel=unreliable)
+    source_man = SourceManager(sources=sources, tracker=conf.load_host_tracker(loop), unrel=unreliable)
     s = time.perf_counter()
 
     async with ClientSession() as session:
@@ -79,7 +82,6 @@ if __name__ == '__main__':
 
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
     event_loop = asyncio.get_event_loop()
-    c.load_sources()
     try:
         exec_time = event_loop.run_until_complete(main(loop=event_loop, conf=c))
         print(f"job executed in {exec_time:0.2f} seconds.")
