@@ -11,8 +11,8 @@ from evenflow.helpers.req import maintain_netloc
 from evenflow.messages import LinkContainer
 
 from .source import FeedReaderHTML
-from evenflow.fci.feedreader import FeedResult
-from evenflow.fci import FeedReader
+from evenflow.readers.feedreader import FeedResult
+from evenflow.readers import FeedReader
 
 
 # TODO move this in producers module

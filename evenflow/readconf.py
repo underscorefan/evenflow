@@ -8,7 +8,7 @@ from evenflow.helpers.hostracker import HostTracker
 from evenflow.helpers.unreliableset import UnreliableSet
 from evenflow.helpers.file import read_json_from
 from evenflow.dbops import DatabaseCredentials
-from evenflow.fci import State, FeedReader, FeedReaderHTML
+from evenflow.readers import State, FeedReader, FeedReaderHTML
 from evenflow.pkginfo import short_description
 
 

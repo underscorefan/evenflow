@@ -1,7 +1,7 @@
 import abc
 from typing import Dict, Tuple, Optional
 from aiohttp import ClientSession
-from evenflow.fci import State
+from evenflow.readers import State
 
 
 class FeedReader(abc.ABC):

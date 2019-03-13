@@ -3,7 +3,7 @@ import uvloop
 import time
 from aiohttp import ClientSession
 from evenflow import consumers
-from evenflow.fci import SourceManager
+from evenflow.readers import SourceManager
 from evenflow.readconf import Conf, conf_from_cli
 from evenflow.helpers.unreliableset import UnreliableSet
 
