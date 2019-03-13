@@ -11,7 +11,7 @@ class FeedReader(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def to_state(self, over: bool = False):
+    def to_state(self, over: bool = False) -> State:
         pass
 
     @abc.abstractmethod
