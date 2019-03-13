@@ -1,8 +1,10 @@
-import abc
 from aiohttp import ClientSession
 from typing import List, Tuple, Optional, Dict, Union
+
 from evenflow.helpers.func import mmap
 from evenflow.helpers.html import PageOps
+
+from .feedreader import FeedResult, FeedReader
 from .state import State
 
 
@@ -15,25 +17,6 @@ class Selectors:
         self.next = nextp
         self.entries = entries
         self.links = links
-
-
-class FeedReader(abc.ABC):
-
-    @abc.abstractmethod
-    def get_name(self) -> str:
-        pass
-
-    @abc.abstractmethod
-    def to_state(self, over: bool = False):
-        pass
-
-    @abc.abstractmethod
-    async def fetch_links(self, session: ClientSession) -> 'FeedResult':
-        pass
-
-    @abc.abstractmethod
-    def recover_state(self, state: State) -> bool:
-        pass
 
 
 class FeedReaderHTML(FeedReader):
@@ -108,13 +91,3 @@ class FeedReaderHTML(FeedReader):
         return all_links
 
 
-class FeedResult:
-    def __init__(
-            self,
-            links: Dict[str, Tuple[str, bool]],
-            next_reader: Optional[FeedReader],
-            current_reader_state: State
-    ):
-        self.links = links
-        self.next_reader = next_reader
-        self.current_reader_state = current_reader_state
