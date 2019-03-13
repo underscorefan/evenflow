@@ -8,12 +8,13 @@ from evenflow.readconf import Conf, conf_from_cli
 from evenflow.helpers.unreliableset import UnreliableSet
 
 
-def load_unreliable(conf: Conf) -> UnreliableSet:
+def create_unreliable(conf: Conf) -> UnreliableSet:
     unreliable = conf.load_unreliable()
 
-    for domain in ["is", "fo", "today"]:
-        unreliable.add(f"archive.{domain}", netloc=False)
-    unreliable.add("web.archive.org")
+    unreliable.add_multiple(
+        urls=[f"archive.{dom}" for dom in ["is", "fo", "today"]]+["web.archive.org"],
+        netloc=False
+    )
 
     return unreliable
 
@@ -34,7 +35,7 @@ async def sources_layer(loop: asyncio.events, conf: Conf, unreliable: Unreliable
 
 
 async def main(loop: asyncio.events, conf: Conf) -> float:
-    unreliable_set = load_unreliable(conf=conf)
+    unreliable_set = create_unreliable(conf=conf)
 
     s, a, e = ("sources", "articles", "errors")
     q = {name: asyncio.Queue(loop=loop) for name in [s, a, e]}

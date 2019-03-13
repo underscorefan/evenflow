@@ -1,4 +1,4 @@
-from typing import Set, Optional
+from typing import List, Set, Optional
 from evenflow.helpers.req import maintain_netloc, remove_prefix
 
 
@@ -13,6 +13,10 @@ class UnreliableSet:
 
     def add(self, url: str, netloc: bool = True):
         self.set.add(self.__strip_if(url, netloc))
+
+    def add_multiple(self, urls: List[str], netloc: bool = True):
+        for url in urls:
+            self.add(url, netloc=netloc)
 
     @staticmethod
     def __strip_if(url: str, netloc: bool) -> str:
