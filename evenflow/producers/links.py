@@ -51,17 +51,18 @@ class IterationManager:
 
 
 class LinkProducerSettings:
-    def __init__(self, tracker: HostTracker, unrel: UnreliableSet, send_channel: asyncio.Queue, session: ClientSession):
+    def __init__(self, tracker: HostTracker, unrel: UnreliableSet, send_channel: asyncio.Queue):
         self.tracker = tracker
         self.unrel = unrel
         self.send_channel = send_channel
-        self.session = session
 
 
-async def produce_links(settings: LinkProducerSettings, to_read: List[FeedReader]):
+async def produce_links(settings: LinkProducerSettings, to_read: List[FeedReader], session: ClientSession):
     iteration_manager = IterationManager(to_read)
     while iteration_manager.has_readers():
-        coroutines = [source.fetch_links(settings.session) for source in iteration_manager.get_readers()]
+        readers = iteration_manager.get_readers()
+        print(readers)
+        coroutines = [source.fetch_links(session) for source in readers]
         sender = Sender()
 
         for res in await asyncio.gather(*coroutines):

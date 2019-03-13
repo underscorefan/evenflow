@@ -3,9 +3,9 @@ import uvloop
 import time
 from aiohttp import ClientSession
 from evenflow import consumers
-from evenflow.readers import SourceManager
 from evenflow.readconf import Conf, conf_from_cli
 from evenflow.helpers.unreliableset import UnreliableSet
+from evenflow.producers import produce_links, LinkProducerSettings
 
 
 def create_unreliable(conf: Conf) -> UnreliableSet:
@@ -19,26 +19,23 @@ def create_unreliable(conf: Conf) -> UnreliableSet:
     return unreliable
 
 
-async def sources_layer(loop: asyncio.events, conf: Conf, unreliable: UnreliableSet, sq: asyncio.Queue) -> float:
-    sources = conf.load_sources()
-    if not sources or len(sources) == 0:
-        print("no sources to begin with")
-        return 0.0
-
-    source_man = SourceManager(sources=sources, tracker=conf.load_host_tracker(loop), unrel=unreliable)
-    s = time.perf_counter()
-
-    async with ClientSession() as session:
-        await source_man.fetch_articles(session, sq)
-        source_man.store_tracker(conf.host_cache)
-        return time.perf_counter() - s
-
-
 async def main(loop: asyncio.events, conf: Conf) -> float:
     unreliable_set = create_unreliable(conf=conf)
 
+    readers = conf.load_sources()
+
+    if not readers or len(readers) == 0:
+        print("no sources to begin with")
+        return 0.0
+
     s, a, e = ("sources", "articles", "errors")
     q = {name: asyncio.Queue(loop=loop) for name in [s, a, e]}
+
+    link_producers_settings = LinkProducerSettings(
+        tracker=conf.load_host_tracker(loop=loop),
+        unrel=unreliable_set,
+        send_channel=q[s]
+    )
 
     print("about to create pool")
     pg_pool = await conf.setupdb().make_pool()
@@ -64,7 +61,11 @@ async def main(loop: asyncio.events, conf: Conf) -> float:
 
     consumer_jobs = [asyncio.ensure_future(future, loop=event_loop) for future in futures]
 
-    scrape_time = await sources_layer(loop=loop, conf=conf, sq=q[s], unreliable=unreliable_set)
+    start_time = time.perf_counter()
+    async with ClientSession() as session:
+        # scrape_time = await sources_layer(loop=loop, conf=conf, sq=q[s], unreliable=unreliable_set)
+        await produce_links(settings=link_producers_settings, to_read=readers, session=session)
+        scrape_time = time.perf_counter() - start_time
 
     for k in q:
         await q[k].join()

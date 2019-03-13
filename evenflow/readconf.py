@@ -36,7 +36,7 @@ class Conf:
             return list(
                 filter(
                     lambda x: x,
-                    [f(s.items()) for s in self.sources_json]
+                    [f(s.items()) for s in self.sources_json if s["type"] == "html"]
                 )
             )
 
