@@ -10,7 +10,7 @@ from evenflow.helpers.unreliableset import UnreliableSet
 from evenflow.helpers.req import maintain_netloc
 from evenflow.messages import LinkContainer
 
-from .source import FeedReaderHTML
+from .htmlreader import FeedReaderHTML
 from evenflow.readers.feedreader import FeedResult
 from evenflow.readers import FeedReader
 

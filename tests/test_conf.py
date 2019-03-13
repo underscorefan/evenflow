@@ -1,5 +1,5 @@
 from evenflow import Conf
-from evenflow.readers.source import PAGE, URL
+from evenflow.readers.htmlreader import PAGE, URL
 from functools import partial
 
 
