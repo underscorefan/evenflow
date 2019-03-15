@@ -1,6 +1,6 @@
 import asyncio
 
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Tuple
 from aiohttp import TCPConnector, ClientSession
 from newspaper.configuration import Configuration
 from evenflow.ade import scraper_factory
@@ -10,6 +10,9 @@ from evenflow.helpers.unreliableset import UnreliableSet
 from evenflow.helpers.req.headers import firefox
 from evenflow.helpers.exc import get_name
 from evenflow.messages import LinkContainer, ArticleExtended, Error
+
+
+LIMIT_PER_HOST = 2
 
 
 def newspaper_config() -> Configuration:
@@ -54,7 +57,7 @@ class ArticleStreamConfiguration:
 class DefaultArticleStreamConf(ArticleStreamConfiguration):
     def __init__(self, backup_path: Optional[str] = None, initial_state: Optional[Dict] = None):
         super().__init__(
-            connector=TCPConnector(limit_per_host=1),
+            connector=TCPConnector(limit_per_host=LIMIT_PER_HOST),
             headers=firefox,
             backup_path=backup_path,
             initial_state=initial_state,
@@ -69,8 +72,11 @@ class ArticleStreamQueues:
         self.error = error
         self.verbose = verbose
 
-    async def send_error(self, message: str, link: str, source: str):
+    async def create_and_send_error(self, message: str, link: str, source: str):
         await self.error.put(Error(msg=message, url=link, source=source))
+
+    async def send_error(self, error: Error):
+        await self.error.put(error)
 
     async def send_articles(self, articles: List[ArticleExtended]):
         if self.verbose:
@@ -100,21 +106,37 @@ class ArticleContainer:
         return self._list
 
 
+class CoroCreator:
+    def __init__(self, unrel: UnreliableSet, session: ClientSession, newspaper_conf: Configuration):
+        self.unrel = unrel
+        self.session = session
+        self.newspaper_conf = newspaper_conf
+
+    async def new_coro(self, link: str, item: Tuple[str, bool]) -> Tuple[Optional[ArticleExtended], Optional[Error]]:
+        source, fake = item
+        try:
+            scraper = scraper_factory(link=link, source=source, unreliable=self.unrel, fake=fake)
+            return await scraper.get_data(self.session, self.newspaper_conf), None
+        except Exception as e:
+            return None, Error(msg=get_name(e), url=link, source=source)
+
+
 async def handle_links(stream_conf: ArticleStreamConfiguration, queues: ArticleStreamQueues, unreliable: UnreliableSet):
     backup_manager = stream_conf.make_backup_manager()
     async with stream_conf.make_session() as session:
+        coro_creator = CoroCreator(unrel=unreliable, session=session, newspaper_conf=stream_conf.newspaper_conf)
         while True:
             link_container = await queues.receive_links()
             article_container = ArticleContainer()
-            for link, item in link_container.items():
-                source, fake = item
-                try:
-                    scraper = scraper_factory(link=link, source=source, unreliable=unreliable, fake=fake)
-                    msg = article_container.add_article(await scraper.get_data(session, stream_conf.newspaper_conf))
-                    if msg is not None:
-                        print(msg)
-                except Exception as e:
-                    await queues.send_error(message=get_name(e), link=link, source=source)
+            results = asyncio.gather(*[coro_creator.new_coro(link, item) for link, item in link_container.items()])
+            for result in await results:
+                maybe_article, error = result
+                if maybe_article:
+                    msg = article_container.add_article(maybe_article)
+                    print(msg)
+                    continue
+                if error:
+                    await queues.send_error(error)
             await queues.send_articles(article_container.get_articles())
             await backup_manager.store(link_container.backup)
             queues.mark_links()
