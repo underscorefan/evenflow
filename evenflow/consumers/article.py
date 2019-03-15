@@ -1,15 +1,16 @@
 import asyncio
 
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, List, Dict, Tuple, Awaitable
 from aiohttp import TCPConnector, ClientSession
 from newspaper.configuration import Configuration
 from evenflow.ade import scraper_factory
+from evenflow.messages import LinkContainer, ArticleExtended, Error
 from evenflow.helpers.check.article_checker import ArticleChecker
 from evenflow.helpers.file import asy_write_json
 from evenflow.helpers.unreliableset import UnreliableSet
 from evenflow.helpers.req.headers import firefox
 from evenflow.helpers.exc import get_name
-from evenflow.messages import LinkContainer, ArticleExtended, Error
+from evenflow.helpers.func import Either, Left, Right
 
 
 LIMIT_PER_HOST = 2
@@ -112,31 +113,35 @@ class CoroCreator:
         self.session = session
         self.newspaper_conf = newspaper_conf
 
-    async def new_coro(self, link: str, item: Tuple[str, bool]) -> Tuple[Optional[ArticleExtended], Optional[Error]]:
+    async def new_coro(self, link: str, item: Tuple[str, bool]) -> Either[Error, ArticleExtended]:
         source, fake = item
         try:
             scraper = scraper_factory(link=link, source=source, unreliable=self.unrel, fake=fake)
-            return await scraper.get_data(self.session, self.newspaper_conf), None
+            return Right(await scraper.get_data(self.session, self.newspaper_conf))
         except Exception as e:
-            return None, Error(msg=get_name(e), url=link, source=source)
+            return Left(Error(msg=get_name(e), url=link, source=source))
 
 
 async def handle_links(stream_conf: ArticleStreamConfiguration, queues: ArticleStreamQueues, unreliable: UnreliableSet):
     backup_manager = stream_conf.make_backup_manager()
+
+    def printand(e: Error) -> Awaitable:
+        print(f'links:\t{e.msg}')
+        return queues.send_error(e)
+
     async with stream_conf.make_session() as session:
         coro_creator = CoroCreator(unrel=unreliable, session=session, newspaper_conf=stream_conf.newspaper_conf)
         while True:
             link_container = await queues.receive_links()
             article_container = ArticleContainer()
             results = asyncio.gather(*[coro_creator.new_coro(link, item) for link, item in link_container.items()])
+
             for result in await results:
-                maybe_article, error = result
-                if maybe_article:
-                    msg = article_container.add_article(maybe_article)
-                    print(msg)
-                    continue
-                if error:
-                    await queues.send_error(error)
+                result.map(lambda article: article_container.add_article(article)).on_right(lambda m: print(m))
+                maybe_coro = result.on_left(lambda error: printand(error))
+                if maybe_coro:
+                    await maybe_coro
+
             await queues.send_articles(article_container.get_articles())
             await backup_manager.store(link_container.backup)
             queues.mark_links()

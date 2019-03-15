@@ -30,6 +30,7 @@ async def store_errors(pool: asyncpg.pool.Pool, error_queue: asyncio.Queue):
     query_builder = QueryManager(columns=Error.columns(), table='error')
     while True:
         error: Error = await error_queue.get()
+        print(f'errors:\t{error.msg}')
         async with pool.acquire() as connection:
             try:
                 await connection.execute(query_builder.make_insert(), *query_builder.sort_args(error.to_sql_dict()))
