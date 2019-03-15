@@ -145,15 +145,3 @@ async def handle_links(stream_conf: ArticleStreamConfiguration, queues: ArticleS
             await queues.send_articles(article_container.get_articles())
             await backup_manager.store(link_container.backup)
             queues.mark_links()
-
-
-async def default_handle_links(
-        links: asyncio.Queue,
-        storage: asyncio.Queue,
-        error: asyncio.Queue,
-        backup_path: str,
-        unrel: UnreliableSet
-):
-    stream_conf = DefaultArticleStreamConf(backup_path=backup_path)
-    stream_queue = ArticleStreamQueues(links=links, storage=storage, error=error)
-    await handle_links(stream_conf, stream_queue, unrel)
