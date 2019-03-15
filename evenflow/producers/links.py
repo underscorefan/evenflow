@@ -62,7 +62,7 @@ async def produce_links(settings: LinkProducerSettings, to_read: List[FeedReader
     while iteration_manager.has_readers():
         readers = iteration_manager.get_readers()
         print(readers)
-        coroutines = [source.fetch_links(session) for source in readers]
+        coroutines = [reader.fetch_links(session) for reader in readers]
         sender = Sender()
 
         for res in await asyncio.gather(*coroutines):

@@ -37,17 +37,8 @@ class FeedReaderHTML(FeedReader):
         self.stop_after = state.data[PAGE]
         return True
 
-    async def fetch_list(self, session: ClientSession) -> Tuple[List[str], str]:
-        wr = PageOps(self.url, max_workers=2)
-        k_art = "articles"
-        k_n = "next"
-        res = await wr.fetch_multiple_urls(self.sel.entries, k_art)\
-            .fetch_single_url(self.sel.next, k_n)\
-            .do_ops(session)
-        return res[k_art], res[k_n]
-
     async def fetch_links(self, session: ClientSession) -> 'FeedResult':
-        feed_links, next_page = await self.fetch_list(session)
+        feed_links, next_page = await self.__extract_feed_urls(session)
         next_reader = mmap(next_page, self.__new_page)
 
         return FeedResult(
@@ -77,6 +68,15 @@ class FeedReaderHTML(FeedReader):
             fake_news=self.fake_news
         )
 
+    async def __extract_feed_urls(self, session: ClientSession) -> Tuple[List[str], str]:
+        wr = PageOps(self.url, max_workers=2)
+        k_art = "articles"
+        k_n = "next"
+        res = await wr.fetch_multiple_urls(self.sel.entries, k_art)\
+            .fetch_single_url(self.sel.next, k_n)\
+            .do_ops(session)
+        return res[k_art], res[k_n]
+
     async def __get_links_from(self, session: ClientSession, *urls: str) -> Dict[str, Tuple[str, bool]]:
         k_out = "links"
         all_links: Dict[str, Tuple[str, bool]] = {}
@@ -88,6 +88,5 @@ class FeedReaderHTML(FeedReader):
                 **all_links,
                 **dict(zip(article_links[k_out], [(url, self.fake_news)] * len(article_links[k_out])))
             }
+
         return all_links
-
-

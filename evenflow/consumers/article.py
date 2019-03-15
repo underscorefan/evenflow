@@ -19,9 +19,9 @@ def newspaper_config() -> Configuration:
 
 
 class BackupManager:
-    def __init__(self, backup_path: Optional[str]):
+    def __init__(self, backup_path: Optional[str], initial_state: Optional[Dict]):
         self.path = backup_path
-        self.state = {}
+        self.state = {} if not initial_state else initial_state
 
     async def store(self, add: Dict[str, str]):
         if self.path is not None:
@@ -35,26 +35,29 @@ class ArticleStreamConfiguration:
             connector: TCPConnector,
             headers: Dict[str, str],
             newspaper_conf: Configuration,
-            backup_path: Optional[str] = None
+            backup_path: Optional[str] = None,
+            initial_state: Optional[Dict] = None
     ):
         self.connector = connector
         self.headers = headers
         self.backup_path = backup_path
         self.newspaper_conf = newspaper_conf
+        self.state = initial_state
 
     def make_session(self) -> ClientSession:
         return ClientSession(connector=self.connector, headers=self.headers)
 
     def make_backup_manager(self) -> BackupManager:
-        return BackupManager(self.backup_path)
+        return BackupManager(self.backup_path, self.state)
 
 
 class DefaultArticleStreamConf(ArticleStreamConfiguration):
-    def __init__(self, backup_path: Optional[str] = None):
+    def __init__(self, backup_path: Optional[str] = None, initial_state: Optional[Dict] = None):
         super().__init__(
             connector=TCPConnector(limit_per_host=1),
             headers=firefox,
             backup_path=backup_path,
+            initial_state=initial_state,
             newspaper_conf=newspaper_config()
         )
 
@@ -97,9 +100,9 @@ class ArticleContainer:
         return self._list
 
 
-async def handle_links(sc: ArticleStreamConfiguration, queues: ArticleStreamQueues, unreliable: UnreliableSet):
-    backup_manager = sc.make_backup_manager()
-    async with sc.make_session() as session:
+async def handle_links(stream_conf: ArticleStreamConfiguration, queues: ArticleStreamQueues, unreliable: UnreliableSet):
+    backup_manager = stream_conf.make_backup_manager()
+    async with stream_conf.make_session() as session:
         while True:
             link_container = await queues.receive_links()
             article_container = ArticleContainer()
@@ -107,7 +110,7 @@ async def handle_links(sc: ArticleStreamConfiguration, queues: ArticleStreamQueu
                 source, fake = item
                 try:
                     scraper = scraper_factory(link=link, source=source, unreliable=unreliable, fake=fake)
-                    msg = article_container.add_article(await scraper.get_data(session, sc.newspaper_conf))
+                    msg = article_container.add_article(await scraper.get_data(session, stream_conf.newspaper_conf))
                     if msg is not None:
                         print(msg)
                 except Exception as e:

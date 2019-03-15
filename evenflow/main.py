@@ -2,10 +2,26 @@ import asyncio
 import uvloop
 import time
 from aiohttp import ClientSession
-from evenflow import consumers
-from evenflow.readconf import Conf, conf_from_cli
+
 from evenflow.helpers.unreliableset import UnreliableSet
-from evenflow.producers import produce_links, LinkProducerSettings
+from evenflow.consumers.article import (
+    handle_links,
+    DefaultArticleStreamConf,
+    ArticleStreamQueues
+)
+from evenflow.consumers.pg import (
+    store_errors,
+    store_articles
+)
+from evenflow.readconf import (
+    Conf,
+    conf_from_cli
+)
+
+from evenflow.producers import (
+    produce_links,
+    LinkProducerSettings
+)
 
 
 def create_unreliable(conf: Conf) -> UnreliableSet:
@@ -41,19 +57,17 @@ async def main(loop: asyncio.events, conf: Conf) -> float:
     pg_pool = await conf.setupdb().make_pool()
 
     futures = [
-        consumers.article.default_handle_links(
-            links=q[s],
-            storage=q[a],
-            error=q[e],
-            backup_path=conf.backup_file_path,
-            unrel=unreliable_set
+        handle_links(
+            stream_conf=DefaultArticleStreamConf(conf.backup_file_path, conf.initial_state),
+            queues=ArticleStreamQueues(links=q[s], storage=q[a], error=q[e]),
+            unreliable=unreliable_set
         ),
-        consumers.pg.store_articles(
+        store_articles(
             pool=pg_pool,
             storage_queue=q[a],
             error_queue=q[e]
         ),
-        consumers.pg.store_errors(
+        store_errors(
             pool=pg_pool,
             error_queue=q[e]
         )
@@ -63,7 +77,6 @@ async def main(loop: asyncio.events, conf: Conf) -> float:
 
     start_time = time.perf_counter()
     async with ClientSession() as session:
-        # scrape_time = await sources_layer(loop=loop, conf=conf, sq=q[s], unreliable=unreliable_set)
         await produce_links(settings=link_producers_settings, to_read=readers, session=session)
         scrape_time = time.perf_counter() - start_time
 

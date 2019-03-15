@@ -3,7 +3,6 @@ import argparse
 import os
 
 from typing import List, Optional, Dict, ItemsView
-from functools import partial
 from evenflow.helpers.hostracker import HostTracker
 from evenflow.helpers.unreliableset import UnreliableSet
 from evenflow.helpers.file import read_json_from
@@ -18,6 +17,7 @@ class Conf:
         self.host_cache = host_cache
         self.unreliable = unreliable
         self.backup_file_path = backup_file_path
+        self.initial_state = self.__load_backup(backup_file_path)
         self.sources_json = config_data.get("sources")
         self.pg_cred = config_data.get("pg_cred")
 
@@ -29,27 +29,23 @@ class Conf:
             return to_ret
 
     def load_sources(self) -> Optional[List[FeedReader]]:
-        bkp = self.__load_backup()
-        f = partial(self.__make_reader, bkp_obj=bkp)
-
         try:
             return list(
                 filter(
                     lambda x: x,
-                    [f(s.items()) for s in self.sources_json if s["type"] == "html"]
+                    [self.__new_reader(s.items()) for s in self.sources_json if s["type"] == "html"]
                 )
             )
 
         except KeyError:
             return None
 
-    @staticmethod
-    def __make_reader(json_data: ItemsView, bkp_obj: Optional[Dict[str, Dict]]) -> Optional[FeedReader]:
+    def __new_reader(self, json_data: ItemsView) -> Optional[FeedReader]:
         reader = FeedReaderHTML(**{k: v for k, v in json_data if k != "type"})
-        if not bkp_obj:
+        if not self.initial_state:
             return reader
 
-        old_state_obj = bkp_obj.get(reader.get_name())
+        old_state_obj = self.initial_state.get(reader.get_name())
         if old_state_obj:
             recovered = reader.recover_state(State.pack(reader.get_name(), old_state_obj))
             if not recovered:
@@ -60,9 +56,10 @@ class Conf:
     def load_unreliable(self) -> UnreliableSet:
         return UnreliableSet(initial_set=set(read_json_from(self.unreliable)))
 
-    def __load_backup(self) -> Optional[Dict[str, Dict]]:
+    @staticmethod
+    def __load_backup(path) -> Optional[Dict[str, Dict]]:
         try:
-            return read_json_from(self.backup_file_path)
+            return read_json_from(path)
         except FileNotFoundError:
             return None
 
