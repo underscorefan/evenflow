@@ -124,19 +124,20 @@ class ArticleChecker:
         self.duplicate_url = set()
 
 
-class ArticleContainer:
+class ArticleListManager:
     def __init__(self, verbose=True):
         self._checker = ArticleChecker()
         self._list: List[ArticleExtended] = []
         self._verbose = verbose
 
-    def add_article(self, a: ArticleExtended) -> Optional[str]:
+    def add(self, a: ArticleExtended) -> Optional[str]:
         if self._checker.is_valid(a):
             self._list.append(a)
             return f"{a.actual_url} appended" if self._verbose else None
         return None
 
-    def get_articles(self) -> List[ArticleExtended]:
+    @property
+    def get(self) -> List[ArticleExtended]:
         return self._list
 
 
@@ -162,14 +163,13 @@ async def handle_links(stream_conf: ArticleStreamConfiguration, queues: ArticleS
         coro_creator = CoroCreator(unrel=unreliable, session=session, newspaper_conf=stream_conf.newspaper_conf)
         while True:
             link_container = await queues.receive_links()
-            article_container = ArticleContainer()
+            article_list = ArticleListManager()
             results = asyncio.gather(*[coro_creator.new_coro(link, item) for link, item in link_container.items()])
 
             for result in await results:
-                result: Either[Error, ArticleExtended] = result
-                result.map(lambda article: article_container.add_article(article)).on_right(lambda m: print(m))
+                result.map(lambda article: article_list.add(article)).on_right(lambda m: print(m))
                 await result.on_left_awaitable(lambda e: queues.send_error(e))
 
-            await queues.send_articles(article_container.get_articles())
+            await queues.send_articles(article_list.get)
             await backup_manager.store(link_container.backup)
             queues.mark_links()

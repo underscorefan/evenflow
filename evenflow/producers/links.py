@@ -21,9 +21,8 @@ class Sender:
     def get_readers(self) -> List[FeedReader]:
         return self.__readers
 
-    def add_article_links(self, articles: ArticlesContainer):
+    def merge_containers(self, articles: ArticlesContainer):
         self.__articles = self.__articles + articles
-        # = {**self.__articles, **links}
 
     def add_to_backup(self, s: State):
         key, value = s.unpack()
@@ -62,6 +61,7 @@ class LinkProducerSettings:
 
 async def produce_links(settings: LinkProducerSettings, to_read: List[FeedReader], session: ClientSession):
     iteration_manager = IterationManager(to_read)
+
     while iteration_manager.has_readers():
         readers = iteration_manager.get_readers()
         print(readers)
@@ -74,7 +74,7 @@ async def produce_links(settings: LinkProducerSettings, to_read: List[FeedReader
                 continue
             feed_result: FeedResult = res.on_right()
             sender.add_reader(feed_result.next_reader)
-            sender.add_article_links(feed_result.articles.filter(lambda k, _: settings.unrel.contains(k)))
+            sender.merge_containers(feed_result.articles.filter(lambda k, _: settings.unrel.contains(k)))
             sender.add_to_backup(feed_result.current_reader_state)
 
         for error in sender.errors:
