@@ -11,7 +11,6 @@ from evenflow.helpers.check.article_checker import ArticleChecker
 from evenflow.helpers.file import asy_write_json
 from evenflow.helpers.unreliableset import UnreliableSet
 from evenflow.helpers.req.headers import firefox
-from evenflow.helpers.exc import get_name
 
 
 LIMIT_PER_HOST = 2
@@ -120,7 +119,7 @@ class CoroCreator:
             scraper = scraper_factory(link=link, source=source, unreliable=self.unrel, fake=fake)
             return Right(await scraper.get_data(self.session, self.newspaper_conf))
         except Exception as e:
-            return Left(Error(msg=get_name(e), url=link, source=source))
+            return Left(Error.from_exception(exc=e, url=link, source=source))
 
 
 async def handle_links(stream_conf: ArticleStreamConfiguration, queues: ArticleStreamQueues, unreliable: UnreliableSet):
@@ -134,10 +133,9 @@ async def handle_links(stream_conf: ArticleStreamConfiguration, queues: ArticleS
             results = asyncio.gather(*[coro_creator.new_coro(link, item) for link, item in link_container.items()])
 
             for result in await results:
+                result: Either[Error, ArticleExtended] = result
                 result.map(lambda article: article_container.add_article(article)).on_right(lambda m: print(m))
-                maybe_coro = result.on_left(lambda e: queues.send_error(e))
-                if maybe_coro:
-                    await maybe_coro
+                await result.on_left_awaitable(lambda e: queues.send_error(e))
 
             await queues.send_articles(article_container.get_articles())
             await backup_manager.store(link_container.backup)

@@ -20,8 +20,13 @@ async def store_articles(pool: asyncpg.pool.Pool, storage_queue: asyncio.Queue, 
                     print(f"stored {value}")
                 except Exception as e:
                     await error_queue.put(
-                        Error(msg=exc.get_name(e), url=article.url_to_visit, source=article.scraped_from)
+                        Error.from_exception(
+                            exc=e,
+                            url=article.url_to_visit,
+                            source=article.scraped_from
+                        )
                     )
+                    # Error(msg=exc.get_name(e), url=article.url_to_visit, source=article.scraped_from)
 
         storage_queue.task_done()
 

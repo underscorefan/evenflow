@@ -4,7 +4,6 @@ from dirtyfunc import Option, Either
 from aiohttp import ClientSession
 
 from evenflow.messages import Error
-from evenflow.helpers.exc import get_name
 from .state import State
 
 
@@ -34,7 +33,8 @@ class ArticlesContainer:
 
     def add_page_hrefs(self, scraped_from: str, maybe_hrefs: Either[Exception, Dict[str, bool]]):
         if maybe_hrefs.empty:
-            add_error = Error(url=scraped_from, msg=maybe_hrefs.on_left(lambda e: get_name(e)))
+            add_error = maybe_hrefs.on_left(lambda e: Error.from_exception(exc=e, url=scraped_from))
+            # add_error = Error(url=scraped_from, msg=maybe_hrefs.on_left(lambda e: get_name(e)))
             self.__errors.append(add_error)
             return
         self.append_links(maybe_hrefs.on_right())

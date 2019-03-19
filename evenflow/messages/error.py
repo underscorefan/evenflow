@@ -13,6 +13,10 @@ class Error(Storable):
         return Error.__todict__(self.msg, self.url, self.source)
 
     @staticmethod
+    def from_exception(exc: Exception, url: str, source: Optional[str] = None) -> 'Error':
+        return Error(msg=type(exc).__name__, url=url, source=source)
+
+    @staticmethod
     def __todict__(m: str, u: str, s: str):
         return {
             "type": m,
