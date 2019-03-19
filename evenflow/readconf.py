@@ -1,9 +1,7 @@
-import asyncio
 import argparse
 import os
 
 from typing import List, Optional, Dict, ItemsView
-from evenflow.helpers.hostracker import HostTracker
 from evenflow.helpers.unreliableset import UnreliableSet
 from evenflow.helpers.file import read_json_from
 from evenflow.dbops import DatabaseCredentials
@@ -12,21 +10,13 @@ from evenflow.pkginfo import short_description
 
 
 class Conf:
-    def __init__(self, host_cache: str, unreliable: str, backup_file_path: str, config_file: str):
+    def __init__(self, unreliable: str, backup_file_path: str, config_file: str):
         config_data = read_json_from(config_file)
-        self.host_cache = host_cache
         self.unreliable = unreliable
         self.backup_file_path = backup_file_path
         self.initial_state = self.__load_backup(backup_file_path)
         self.sources_json = config_data.get("sources")
         self.pg_cred = config_data.get("pg_cred")
-
-    def load_host_tracker(self, loop: asyncio.events) -> HostTracker:
-        to_ret = HostTracker(loop=loop)
-        try:
-            to_ret.load_from_json(path=self.host_cache)
-        finally:
-            return to_ret
 
     def load_sources(self) -> Optional[List[FeedReader]]:
         try:
@@ -77,7 +67,6 @@ class Conf:
 
 def read_cli_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=short_description)
-    parser.add_argument('-t', '--tracker', help="specify host ip json file", required=True, type=str)
     parser.add_argument('-u', '--unreliable', help="specify unreliable hosts json file", required=True, type=str)
     parser.add_argument('-b', '--backup', help="specify where to save back-up", required=True, type=str)
     parser.add_argument('-c', '--conf', help="specify config file location", required=True, type=str)
@@ -89,7 +78,6 @@ def __make_dict(cli: argparse.Namespace) -> Dict[str, str]:
     return {
         'backup_file_path': cli.backup,
         'config_file': cli.conf,
-        'host_cache': cli.tracker,
         'unreliable': cli.unreliable
     }
 

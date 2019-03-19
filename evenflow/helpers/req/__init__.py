@@ -3,5 +3,4 @@ from .read_html import (
     fetch_html_get,
     soup_object
 )
-from .hostaddress import *
 from .urlman import *

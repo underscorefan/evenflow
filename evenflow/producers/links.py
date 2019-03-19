@@ -2,8 +2,7 @@ import asyncio
 
 from typing import Dict, Tuple, List
 from aiohttp import ClientSession
-from dirtyfunc import Option, Either
-from evenflow.helpers.hostracker import HostTracker
+from dirtyfunc import Option
 from evenflow.helpers.unreliableset import UnreliableSet
 from evenflow.messages import LinkContainer, Error
 from evenflow.readers import FeedReader, State, FeedResult, ArticlesContainer
@@ -56,8 +55,7 @@ class IterationManager:
 
 
 class LinkProducerSettings:
-    def __init__(self, tracker: HostTracker, unrel: UnreliableSet, send_channel: asyncio.Queue):
-        self.tracker = tracker
+    def __init__(self, unrel: UnreliableSet, send_channel: asyncio.Queue):
         self.unrel = unrel
         self.send_channel = send_channel
 

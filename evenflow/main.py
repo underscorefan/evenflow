@@ -1,12 +1,10 @@
 import asyncio
-import uvloop
 import time
-import sys
-import os
-from aiohttp import ClientSession
 import traceback
 
-from evenflow.helpers.unreliableset import UnreliableSet
+import uvloop
+from aiohttp import ClientSession
+
 from evenflow.consumers.article import (
     handle_links,
     DefaultArticleStreamConf,
@@ -16,14 +14,14 @@ from evenflow.consumers.pg import (
     store_errors,
     store_articles
 )
-from evenflow.readconf import (
-    Conf,
-    conf_from_cli
-)
-
+from evenflow.helpers.unreliableset import UnreliableSet
 from evenflow.producers import (
     produce_links,
     LinkProducerSettings
+)
+from evenflow.readconf import (
+    Conf,
+    conf_from_cli
 )
 
 
@@ -51,7 +49,6 @@ async def main(loop: asyncio.events, conf: Conf) -> float:
     q = {name: asyncio.Queue(loop=loop) for name in [s, a, e]}
 
     link_producers_settings = LinkProducerSettings(
-        tracker=conf.load_host_tracker(loop=loop),
         unrel=unreliable_set,
         send_channel=q[s]
     )

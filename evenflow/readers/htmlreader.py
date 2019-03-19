@@ -1,14 +1,13 @@
+from typing import List, Dict, Union
+
 from aiohttp import ClientSession
-from typing import List, Tuple, Dict, Union
-from dirtyfunc import Option, Either, Left, Right, Nothing
 from bs4 import BeautifulSoup
+from dirtyfunc import Option, Either, Left, Right, Nothing
 
 # from evenflow.helpers.html import PageOps
 from evenflow.helpers.req import url_to_soup
-
 from .feedreader import FeedResult, FeedReader, ArticlesContainer
 from .state import State
-
 
 URL = 'url'
 PAGE = 'page'
