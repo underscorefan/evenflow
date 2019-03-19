@@ -3,6 +3,8 @@ import asyncio
 from typing import Optional, List, Dict, Tuple
 from aiohttp import TCPConnector, ClientSession
 from newspaper.configuration import Configuration
+from dirtyfunc import Either, Left, Right
+
 from evenflow.ade import scraper_factory
 from evenflow.messages import LinkContainer, ArticleExtended, Error
 from evenflow.helpers.check.article_checker import ArticleChecker
@@ -10,7 +12,6 @@ from evenflow.helpers.file import asy_write_json
 from evenflow.helpers.unreliableset import UnreliableSet
 from evenflow.helpers.req.headers import firefox
 from evenflow.helpers.exc import get_name
-from evenflow.helpers.func import Either, Left, Right
 
 
 LIMIT_PER_HOST = 2
