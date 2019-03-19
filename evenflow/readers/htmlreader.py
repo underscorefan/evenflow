@@ -118,29 +118,6 @@ class FeedReaderHTML(FeedReader):
         )
         return Option(defined)
 
-    # async def __extract_feed_urls(self, session: ClientSession) -> Tuple[List[str], str]:
-    #     wr = PageOps(self.url, max_workers=2)
-    #     k_art = "articles"
-    #     k_n = "next"
-    #     res = await wr.fetch_multiple_urls(self.sel.entries, k_art)\
-    #         .fetch_single_url(self.sel.next, k_n)\
-    #         .do_ops(session)
-    #     return res[k_art], res[k_n].on_value()
-    #
-    # async def __get_links_from(self, session: ClientSession, *urls: str) -> Dict[str, Tuple[str, bool]]:
-    #     k_out = "links"
-    #     all_links: Dict[str, Tuple[str, bool]] = {}
-    #     for url in urls:
-    #         article_links = await PageOps(url, max_workers=1)\
-    #             .fetch_multiple_urls(self.sel.links, k_out)\
-    #             .do_ops(session)
-    #         all_links = {
-    #             **all_links,
-    #             **dict(zip(article_links[k_out], [(url, self.fake_news)] * len(article_links[k_out])))
-    #         }
-    #
-    #     return all_links
-
     async def __extract_links(self, session: ClientSession, *urls: str) -> ArticlesContainer:
         arts = ArticlesContainer()
         for url in urls:
