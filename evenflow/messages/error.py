@@ -2,6 +2,7 @@ from .storable import Storable
 from typing import Optional, List
 
 
+# TODO add additional information
 class Error(Storable):
 
     def __init__(self, msg: str, url: str, source: Optional[str] = None):

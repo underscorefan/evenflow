@@ -7,7 +7,6 @@ from dirtyfunc import Either, Left, Right
 
 from evenflow.ade import scraper_factory
 from evenflow.messages import LinkContainer, ArticleExtended, Error
-from evenflow.helpers.check.article_checker import ArticleChecker
 from evenflow.helpers.file import asy_write_json
 from evenflow.helpers.unreliableset import UnreliableSet
 from evenflow.helpers.req.headers import firefox
@@ -89,6 +88,35 @@ class ArticleStreamQueues:
 
     def mark_links(self):
         self.links.task_done()
+
+
+class ArticleChecker:
+    def __init__(self):
+        self.duplicate_title = set()
+        self.duplicate_url = set()
+
+    def is_valid(self, a: Optional[ArticleExtended]) -> bool:
+
+        if a is None:
+            return False
+
+        title = a.title.strip()
+        url = a.actual_url.strip()
+
+        if title in self.duplicate_title:
+            return False
+
+        if url in self.duplicate_url:
+            return False
+
+        self.duplicate_url.add(url)
+        self.duplicate_title.add(title)
+
+        return True
+
+    def flush_dicts(self):
+        self.duplicate_title = set()
+        self.duplicate_url = set()
 
 
 class ArticleContainer:
