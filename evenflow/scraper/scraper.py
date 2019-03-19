@@ -9,14 +9,14 @@ from evenflow.helpers.req import fetch_html_get, urlman
 from evenflow.helpers.unreliableset import UnreliableSet
 
 
-class Extractor(abc.ABC):
+class Scraper(abc.ABC):
 
     @abc.abstractmethod
     async def get_data(self, session: ClientSession, conf: Configuration) -> Optional[ArticleExtended]:
         pass
 
 
-class ArticleExtractor(Extractor):
+class ArticleScraper(Scraper):
     def __init__(self, article_link: str, source: str, fake: bool):
         self.article_link = article_link
         self.source = source
@@ -45,7 +45,7 @@ class ArticleExtractor(Extractor):
             return None
 
 
-class Archive(ArticleExtractor):
+class Archive(ArticleScraper):
     def __init__(self, article_link: str, source: str, fake: bool, unreliable: UnreliableSet):
         super().__init__(article_link, source, fake)
         self.unrel = unreliable
@@ -67,7 +67,7 @@ class Archive(ArticleExtractor):
         return None
 
 
-class WebArchive(ArticleExtractor):
+class WebArchive(ArticleScraper):
     def __init__(self, article_link: str, source: str, fake: bool, unreliable: UnreliableSet):
         super().__init__(article_link, source, fake)
         self.unrel = unreliable
@@ -82,13 +82,3 @@ class WebArchive(ArticleExtractor):
             return article
 
         return None
-
-
-def scraper_factory(link: str, source: str, fake: bool, unreliable: UnreliableSet) -> Extractor:
-    if re.match('^https?://archive[.]', link):
-        return Archive(link, source, fake, unreliable)
-
-    if re.match('^https?://web[.]archive[.]', link):
-        return WebArchive(link, source, fake, unreliable)
-
-    return ArticleExtractor(link, source, fake)

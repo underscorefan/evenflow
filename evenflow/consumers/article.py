@@ -8,7 +8,7 @@ from aiohttp import TCPConnector, ClientSession
 from newspaper.configuration import Configuration
 from dirtyfunc import Either, Left, Right
 
-from evenflow.ade import scraper_factory
+from evenflow.scraper import create_article_scraper
 from evenflow.messages import LinkContainer, ArticleExtended, Error
 from evenflow.helpers.unreliableset import UnreliableSet
 from evenflow.helpers.req.headers import firefox
@@ -149,7 +149,7 @@ class CoroCreator:
     async def new_coro(self, link: str, item: Tuple[str, bool]) -> Either[Error, ArticleExtended]:
         source, fake = item
         try:
-            scraper = scraper_factory(link=link, source=source, unreliable=self.unrel, fake=fake)
+            scraper = create_article_scraper(link=link, source=source, unreliable=self.unrel, fake=fake)
             return Right(await scraper.get_data(self.session, self.newspaper_conf))
         except Exception as e:
             return Left(Error.from_exception(exc=e, url=link, source=source))
