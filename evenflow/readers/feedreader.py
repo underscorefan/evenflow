@@ -34,9 +34,9 @@ class ArticlesContainer:
     def add_page_hrefs(self, scraped_from: str, maybe_hrefs: Either[Exception, Dict[str, bool]]):
         if maybe_hrefs.empty:
             add_error = maybe_hrefs.on_left(lambda e: Error.from_exception(exc=e, url=scraped_from))
-            # add_error = Error(url=scraped_from, msg=maybe_hrefs.on_left(lambda e: get_name(e)))
             self.__errors.append(add_error)
             return
+
         self.append_links(maybe_hrefs.on_right())
 
     def append_links(self, additional_links: Dict[str, Tuple[str, bool]]):
