@@ -1,7 +1,10 @@
 import asyncio
 import uvloop
 import time
+import sys
+import os
 from aiohttp import ClientSession
+import traceback
 
 from evenflow.helpers.unreliableset import UnreliableSet
 from evenflow.consumers.article import (
@@ -101,6 +104,7 @@ if __name__ == '__main__':
         exec_time = event_loop.run_until_complete(main(loop=event_loop, conf=c))
         print(f"job executed in {exec_time:0.2f} seconds.")
     except Exception as err:
-        print(err)
+        print(f'main {err}')
+        print(traceback.format_exc())
     finally:
         event_loop.close()

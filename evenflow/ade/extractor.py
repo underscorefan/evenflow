@@ -25,11 +25,15 @@ class ArticleExtractor(Extractor):
     async def get_data(self, session: ClientSession, conf: Configuration) -> Optional[ArticleExtended]:
         try:
             html = await fetch_html_get(self.article_link, session)
+            # TODO quick fix, carry on either type
+            if html.empty:
+                return None
+
             a = ArticleExtended(
                 url_to_visit=self.article_link,
                 conf=conf,
                 scraped_from=self.source,
-                html=html,
+                html=html.on_right(),
                 fake=self.fake
             )
 

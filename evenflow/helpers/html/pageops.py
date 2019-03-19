@@ -1,15 +1,15 @@
 from concurrent.futures import ThreadPoolExecutor
-from typing import Callable
+from typing import Callable, Any
 
 from aiohttp import ClientSession
 from bs4 import BeautifulSoup
 
-from evenflow.helpers.func import mmap
 from evenflow.helpers.req import url_to_soup
+from dirtyfunc import Option
 
 
 class PageOps:
-    def __init__(self, url: str, max_workers: int, **ops: Callable[[BeautifulSoup], any]):
+    def __init__(self, url: str, max_workers: int, **ops: Callable[[BeautifulSoup], Any]):
         self.url = url
         self.ops = ops
         self.max_workers = max_workers
@@ -35,11 +35,11 @@ class PageOps:
     def fetch_single_url(self, selector: str, key: str):
         self.add_op(
             key,
-            lambda page: mmap(page.select_one(selector), lambda tag: tag.get('href'))
+            lambda page: Option(page.select_one(selector)).map(lambda tag: tag.get('href')).on_value()
         )
         return self
 
-    def add_op(self, key: str, op: Callable[[BeautifulSoup], any]):
+    def add_op(self, key: str, op: Callable[[BeautifulSoup], Any]):
         self.ops[key] = op
         return self
 
@@ -47,5 +47,5 @@ class PageOps:
         return self.max_workers == 1
 
     @staticmethod
-    def __func_wrapper(func: Callable[[BeautifulSoup], any], key: str, page: BeautifulSoup):
+    def __func_wrapper(func: Callable[[BeautifulSoup], Any], key: str, page: BeautifulSoup):
         return key, func(page)

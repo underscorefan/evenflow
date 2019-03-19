@@ -1,4 +1,4 @@
-from typing import TypeVar, Generic, Callable, Optional, Any
+from typing import TypeVar, Generic, Callable, Optional
 
 L = TypeVar('L')
 R = TypeVar('R')
@@ -39,5 +39,3 @@ class Left(Generic[L], Either[L, None]):
 class Right(Generic[R], Either[None, R]):
     def __init__(self, right: R):
         super().__init__(None, right)
-
-

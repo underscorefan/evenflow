@@ -16,4 +16,3 @@ async def asy_write_json(path: str, obj):
 def read_json_from(path: str):
     with io.open(path, 'r', encoding='utf-8-sig') as f:
         return json.load(f)
-

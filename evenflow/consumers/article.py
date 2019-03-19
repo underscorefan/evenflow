@@ -1,6 +1,6 @@
 import asyncio
 
-from typing import Optional, List, Dict, Tuple, Awaitable
+from typing import Optional, List, Dict, Tuple
 from aiohttp import TCPConnector, ClientSession
 from newspaper.configuration import Configuration
 from evenflow.ade import scraper_factory
@@ -125,10 +125,6 @@ class CoroCreator:
 async def handle_links(stream_conf: ArticleStreamConfiguration, queues: ArticleStreamQueues, unreliable: UnreliableSet):
     backup_manager = stream_conf.make_backup_manager()
 
-    def printand(e: Error) -> Awaitable:
-        print(f'links:\t{e.msg}')
-        return queues.send_error(e)
-
     async with stream_conf.make_session() as session:
         coro_creator = CoroCreator(unrel=unreliable, session=session, newspaper_conf=stream_conf.newspaper_conf)
         while True:
@@ -138,7 +134,7 @@ async def handle_links(stream_conf: ArticleStreamConfiguration, queues: ArticleS
 
             for result in await results:
                 result.map(lambda article: article_container.add_article(article)).on_right(lambda m: print(m))
-                maybe_coro = result.on_left(lambda error: printand(error))
+                maybe_coro = result.on_left(lambda e: queues.send_error(e))
                 if maybe_coro:
                     await maybe_coro
 
