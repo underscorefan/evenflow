@@ -1,13 +1,15 @@
 import asyncio
+import json
 
 from typing import Optional, List, Dict, Tuple
+
+import aiofiles
 from aiohttp import TCPConnector, ClientSession
 from newspaper.configuration import Configuration
 from dirtyfunc import Either, Left, Right
 
 from evenflow.ade import scraper_factory
 from evenflow.messages import LinkContainer, ArticleExtended, Error
-from evenflow.helpers.file import asy_write_json
 from evenflow.helpers.unreliableset import UnreliableSet
 from evenflow.helpers.req.headers import firefox
 
@@ -22,6 +24,8 @@ def newspaper_config() -> Configuration:
 
 
 class BackupManager:
+    __INDENT = 2
+
     def __init__(self, backup_path: Optional[str], initial_state: Optional[Dict]):
         self.path = backup_path
         self.state = {} if not initial_state else initial_state
@@ -29,7 +33,8 @@ class BackupManager:
     async def store(self, add: Dict[str, str]):
         if self.path is not None:
             self.state = {**self.state, **add}
-            await asy_write_json(path=self.path, obj=self.state)
+            async with aiofiles.open(self.path, mode='w') as f:
+                await f.write(json.dumps(self.state, indent=self.__INDENT))
 
 
 class ArticleStreamConfiguration:

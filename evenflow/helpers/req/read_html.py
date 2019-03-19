@@ -14,7 +14,6 @@ async def __real_request(url: str, session: ClientSession) -> str:
 async def url_to_soup(url: str, session: ClientSession) -> Either[Exception, BeautifulSoup]:
     attempt = await fetch_html_get(url, session)
     return attempt.map(lambda response_text: soup_object(response_text))
-    # return soup_object(await fetch_html_get(url, session))
 
 
 async def fetch_html_get(url: str, session: ClientSession) -> Either[Exception, str]:

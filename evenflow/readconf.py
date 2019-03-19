@@ -1,12 +1,17 @@
 import argparse
 import os
-
+import io
+import json
 from typing import List, Optional, Dict, ItemsView
 from evenflow.helpers.unreliableset import UnreliableSet
-from evenflow.helpers.file import read_json_from
 from evenflow.dbops import DatabaseCredentials
 from evenflow.readers import State, FeedReader, FeedReaderHTML
 from evenflow.pkginfo import short_description
+
+
+def read_json_from(path: str):
+    with io.open(path, 'r', encoding='utf-8-sig') as f:
+        return json.load(f)
 
 
 class Conf:
