@@ -86,7 +86,6 @@ class FeedReaderHTML(FeedReader):
 
         feed: FeedContainer = maybe_feed.on_right()
         next_reader = feed.maybe_next.flat_map(self.__new_page)
-        # next_reader = mmap(next_page, self.__new_page)
 
         defined = FeedResult(
             articles=await self.__extract_links(session, *feed.urls),
