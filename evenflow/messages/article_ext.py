@@ -2,7 +2,7 @@ from typing import Optional, Dict, List
 from bs4 import BeautifulSoup
 from newspaper import Article
 from newspaper.configuration import Configuration
-from evenflow.helpers.req import soup_object
+from evenflow import utreq
 from evenflow.urlman import functions
 from evenflow.messages.functions import check_strings, value_or_none, remove_newlines, min_words_or_none
 from .storable import Storable
@@ -21,7 +21,7 @@ class ArticleExtended(Article, Storable):
         self.fake = fake
         self.url_to_visit: str = url_to_visit
         self.scraped_from: str = scraped_from
-        self.soup: BeautifulSoup = soup_object(html)
+        self.soup: BeautifulSoup = utreq.soup_from_response(html)
         self.actual_url: str = url_to_visit
         self.__text_length: Optional[int] = None
 

@@ -4,8 +4,8 @@ from aiohttp import ClientSession
 from aiohttp.client_exceptions import InvalidURL
 from newspaper.configuration import Configuration
 from typing import Optional
+from evenflow import utreq
 from evenflow.messages.article_ext import ArticleExtended
-from evenflow.helpers.req import fetch_html_get
 from evenflow.urlman import functions, UrlSet
 
 
@@ -24,7 +24,7 @@ class ArticleScraper(Scraper):
 
     async def get_data(self, session: ClientSession, conf: Configuration) -> Optional[ArticleExtended]:
         try:
-            html = await fetch_html_get(self.article_link, session)
+            html = await utreq.get_html(self.article_link, session)
             # TODO quick fix, carry on either type
             if html.empty:
                 return None

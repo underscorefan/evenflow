@@ -1,13 +1,13 @@
 from typing import List, Dict, Union
-
 from aiohttp import ClientSession
 from bs4 import BeautifulSoup
 from dirtyfunc import Option, Either, Left, Right, Nothing
 
-from evenflow.helpers.req import url_to_soup
-from .feedreader import FeedResult, FeedReader
+from evenflow import utreq
 from evenflow.messages.extracted_data_keeper import ExtractedDataKeeper
+
 from .state import State
+from .feedreader import FeedResult, FeedReader
 
 URL = 'url'
 PAGE = 'page'
@@ -120,14 +120,14 @@ class FeedReaderHTML(FeedReader):
     async def __extract_links(self, session: ClientSession, *urls: str) -> ExtractedDataKeeper:
         arts = ExtractedDataKeeper()
         for url in urls:
-            maybe_page = (await url_to_soup(url, session))\
+            maybe_page = (await utreq.new_soup(url, session))\
                 .map(lambda page: UrlExtractor(page).make_url_container(self.sel.links))\
                 .map(lambda container: container.to_dict([(url, self.fake_news)]))
             arts.add_page_hrefs(url, maybe_page)
         return arts
 
     async def __extract_feed(self, session: ClientSession) -> Either[Exception, UrlContainer]:
-        maybe_page = await url_to_soup(self.url, session)
+        maybe_page = await utreq.new_soup(self.url, session)
         return maybe_page.map(
             lambda page: UrlExtractor(page).make_feed_container(
                 list_selector=self.sel.entries,
