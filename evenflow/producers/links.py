@@ -68,7 +68,7 @@ async def produce_links(settings: LinkProducerSettings, to_read: List[FeedReader
 
     while iteration_manager.has_readers():
         readers = iteration_manager.get_readers()
-        print(readers)
+        print([reader.get_name() for reader in readers])
         coroutines = [reader.fetch_links(session) for reader in readers]
         sender = Sender()
 
@@ -80,9 +80,6 @@ async def produce_links(settings: LinkProducerSettings, to_read: List[FeedReader
             sender.add_reader(feed_result.next_reader)
             sender.merge_containers(feed_result.articles.filter(lambda k, _: settings.unrel.contains(k)))
             sender.add_to_backup(feed_result.current_reader_state)
-
-        for error in sender.errors:
-            print('link producer', error.url, error.msg)
 
         await settings.send_channel.put(sender.container)
         iteration_manager.set_readers(sender.get_readers())

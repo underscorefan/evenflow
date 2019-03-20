@@ -2,9 +2,8 @@ from typing import Optional, Dict, List
 from bs4 import BeautifulSoup
 from newspaper import Article
 from newspaper.configuration import Configuration
-from evenflow.helpers.check.string_checker import min_words_or_none, value_or_none, remove_newlines
-from evenflow.helpers.check.array_checker import check_strings
 from evenflow.helpers.req import soup_object, urlman
+from evenflow.messages.functions import check_strings, value_or_none, remove_newlines, min_words_or_none
 from .storable import Storable
 
 

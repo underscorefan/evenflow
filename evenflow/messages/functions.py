@@ -1,6 +1,15 @@
 import re
+from typing import List, Optional
 
-from typing import Optional
+
+def check_strings(lst: List) -> List[str]:
+    ret: List[str] = []
+    for element in lst:
+        if isinstance(element, str):
+            element = element.strip()
+            if element != '':
+                ret.append(element)
+    return ret
 
 
 def value_or_none(to_check) -> Optional[str]:
