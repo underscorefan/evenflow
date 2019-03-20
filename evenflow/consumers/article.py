@@ -9,7 +9,7 @@ from newspaper.configuration import Configuration
 from dirtyfunc import Either, Left, Right
 
 from evenflow.scraper import create_article_scraper
-from evenflow.messages import LinkContainer, ArticleExtended, Error
+from evenflow.messages import ArticleExtended, Error, ExtractedDataKeeper
 from evenflow.helpers.unreliableset import UnreliableSet
 from evenflow.helpers.req.headers import firefox
 
@@ -30,7 +30,7 @@ class BackupManager:
         self.path = backup_path
         self.state = {} if not initial_state else initial_state
 
-    async def store(self, add: Dict[str, str]):
+    async def store(self, add: Dict[str, Dict]):
         if self.path is not None:
             self.state = {**self.state, **add}
             async with aiofiles.open(self.path, mode='w') as f:
@@ -88,7 +88,7 @@ class ArticleStreamQueues:
             print(f"sending {len(articles)}")
         await self.storage.put(articles)
 
-    async def receive_links(self) -> LinkContainer:
+    async def receive_links(self) -> ExtractedDataKeeper:
         return await self.links.get()
 
     def mark_links(self):
@@ -164,7 +164,7 @@ async def handle_links(stream_conf: ArticleStreamConfiguration, queues: ArticleS
         while True:
             link_container = await queues.receive_links()
             article_list = ArticleListManager()
-            results = asyncio.gather(*[coro_creator.new_coro(link, item) for link, item in link_container.items()])
+            results = asyncio.gather(*[coro_creator.new_coro(link, item) for link, item in link_container.items])
 
             for result in await results:
                 result.map(lambda article: article_list.add(article)).on_right(lambda m: print(m))

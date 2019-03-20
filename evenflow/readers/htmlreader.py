@@ -5,7 +5,8 @@ from bs4 import BeautifulSoup
 from dirtyfunc import Option, Either, Left, Right, Nothing
 
 from evenflow.helpers.req import url_to_soup
-from .feedreader import FeedResult, FeedReader, ArticlesContainer
+from .feedreader import FeedResult, FeedReader
+from evenflow.messages.extracted_data_keeper import ExtractedDataKeeper
 from .state import State
 
 URL = 'url'
@@ -116,8 +117,8 @@ class FeedReaderHTML(FeedReader):
         )
         return Option(defined)
 
-    async def __extract_links(self, session: ClientSession, *urls: str) -> ArticlesContainer:
-        arts = ArticlesContainer()
+    async def __extract_links(self, session: ClientSession, *urls: str) -> ExtractedDataKeeper:
+        arts = ExtractedDataKeeper()
         for url in urls:
             maybe_page = (await url_to_soup(url, session))\
                 .map(lambda page: UrlExtractor(page).make_url_container(self.sel.links))\

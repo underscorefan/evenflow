@@ -4,13 +4,13 @@ from typing import Dict, Tuple, List
 from aiohttp import ClientSession
 from dirtyfunc import Option
 from evenflow.helpers.unreliableset import UnreliableSet
-from evenflow.messages import LinkContainer, Error
-from evenflow.readers import FeedReader, State, FeedResult, ArticlesContainer
+from evenflow.messages import Error, ExtractedDataKeeper
+from evenflow.readers import FeedReader, State, FeedResult
 
 
 class Sender:
     def __init__(self):
-        self.__articles: ArticlesContainer = ArticlesContainer()
+        self.__articles: ExtractedDataKeeper = ExtractedDataKeeper()
         self.__backup: Dict[str, Dict] = dict()
         self.__readers: List[FeedReader] = []
 
@@ -21,7 +21,7 @@ class Sender:
     def get_readers(self) -> List[FeedReader]:
         return self.__readers
 
-    def merge_containers(self, articles: ArticlesContainer):
+    def merge_containers(self, articles: ExtractedDataKeeper):
         self.__articles = self.__articles + articles
 
     def add_to_backup(self, s: State):
@@ -30,6 +30,10 @@ class Sender:
 
     def get_links(self) -> Dict[str, Tuple[str, bool]]:
         return self.__articles.links_to_send
+
+    @property
+    def container(self) -> ExtractedDataKeeper:
+        return self.__articles.set_backup(self.__backup)
 
     @property
     def errors(self) -> List[Error]:
@@ -80,5 +84,5 @@ async def produce_links(settings: LinkProducerSettings, to_read: List[FeedReader
         for error in sender.errors:
             print('link producer', error.url, error.msg)
 
-        await settings.send_channel.put(LinkContainer(links=sender.get_links(), backup=sender.get_backup()))
+        await settings.send_channel.put(sender.container)
         iteration_manager.set_readers(sender.get_readers())
