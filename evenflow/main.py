@@ -5,15 +5,14 @@ import traceback
 import uvloop
 from aiohttp import ClientSession
 
-from evenflow.streams.consumers.dispatcher import (
+from evenflow.streams.consumers import (
     dispatch_links,
     DefaultDispatcher,
-    DispatcherQueues
-)
-from evenflow.streams.consumers.pg import (
+    DispatcherQueues,
     store_errors,
     store_articles
 )
+
 from evenflow.urlman import UrlSet
 from evenflow.streams.producers import (
     collect_links,

@@ -5,26 +5,26 @@ from aiohttp import ClientSession
 from dirtyfunc import Option
 from evenflow.urlman import UrlSet
 from evenflow.messages import Error, ExtractedDataKeeper
-from evenflow.readers import FeedReader, State, FeedResult
+from evenflow.scrapers.feed import FeedScraper, FeedScraperState, FeedResult
 
 
 class Sender:
     def __init__(self):
         self.__articles: ExtractedDataKeeper = ExtractedDataKeeper()
         self.__backup: Dict[str, Dict] = dict()
-        self.__readers: List[FeedReader] = []
+        self.__readers: List[FeedScraper] = []
 
-    def add_reader(self, reader: Option[FeedReader]):
+    def add_reader(self, reader: Option[FeedScraper]):
         if not reader.empty:
             self.__readers.append(reader.on_value())
 
-    def get_readers(self) -> List[FeedReader]:
+    def get_readers(self) -> List[FeedScraper]:
         return self.__readers
 
     def merge_containers(self, articles: ExtractedDataKeeper):
         self.__articles = self.__articles + articles
 
-    def add_to_backup(self, s: State):
+    def add_to_backup(self, s: FeedScraperState):
         key, value = s.unpack()
         self.__backup[key] = value
 
@@ -44,16 +44,16 @@ class Sender:
 
 
 class IterationManager:
-    def __init__(self, initial_readers: List[FeedReader]):
+    def __init__(self, initial_readers: List[FeedScraper]):
         self.__readers = initial_readers
 
     def has_readers(self) -> bool:
         return len(self.__readers) > 0
 
-    def set_readers(self, readers: List[FeedReader]):
+    def set_readers(self, readers: List[FeedScraper]):
         self.__readers = readers
 
-    def get_readers(self) -> List[FeedReader]:
+    def get_readers(self) -> List[FeedScraper]:
         return self.__readers
 
 
@@ -63,7 +63,7 @@ class LinkProducerSettings:
         self.send_channel = send_channel
 
 
-async def collect_links(settings: LinkProducerSettings, to_read: List[FeedReader], session: ClientSession):
+async def collect_links(settings: LinkProducerSettings, to_read: List[FeedScraper], session: ClientSession):
     iteration_manager = IterationManager(to_read)
 
     while iteration_manager.has_readers():

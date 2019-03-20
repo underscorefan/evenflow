@@ -5,7 +5,7 @@ import json
 from typing import List, Optional, Dict, ItemsView
 from evenflow.urlman import UrlSet
 from evenflow.dbops import DatabaseCredentials
-from evenflow.readers import State, FeedReader, FeedReaderHTML
+from evenflow.scrapers.feed import FeedScraperState, FeedScraper, SiteFeed
 from evenflow.pkginfo import short_description
 
 
@@ -23,7 +23,7 @@ class Conf:
         self.sources_json = config_data.get("sources")
         self.pg_cred = config_data.get("pg_cred")
 
-    def load_sources(self) -> Optional[List[FeedReader]]:
+    def load_sources(self) -> Optional[List[FeedScraper]]:
         try:
             return list(
                 filter(
@@ -35,14 +35,14 @@ class Conf:
         except KeyError:
             return None
 
-    def __new_reader(self, json_data: ItemsView) -> Optional[FeedReader]:
-        reader = FeedReaderHTML(**{k: v for k, v in json_data if k != "type"})
+    def __new_reader(self, json_data: ItemsView) -> Optional[FeedScraper]:
+        reader = SiteFeed(**{k: v for k, v in json_data if k != "type"})
         if not self.initial_state:
             return reader
 
         old_state_obj = self.initial_state.get(reader.get_name())
         if old_state_obj:
-            recovered = reader.recover_state(State.pack(reader.get_name(), old_state_obj))
+            recovered = reader.recover_state(FeedScraperState.pack(reader.get_name(), old_state_obj))
             if not recovered:
                 return None
 

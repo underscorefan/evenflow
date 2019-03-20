@@ -1,5 +1,5 @@
 from evenflow import Conf
-from evenflow.readers.htmlreader import PAGE, URL
+from evenflow.scrapers.feed.sitefeed import PAGE, URL
 from functools import partial
 
 

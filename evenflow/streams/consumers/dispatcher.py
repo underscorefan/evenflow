@@ -8,7 +8,7 @@ from aiohttp import TCPConnector, ClientSession
 from newspaper.configuration import Configuration
 from dirtyfunc import Either, Left, Right
 
-from evenflow.scraper import create_article_scraper
+from evenflow.scrapers.article import create_article_scraper
 from evenflow.messages import ArticleExtended, Error, ExtractedDataKeeper
 from evenflow.urlman import UrlSet
 

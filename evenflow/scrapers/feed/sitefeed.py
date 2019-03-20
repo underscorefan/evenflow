@@ -6,8 +6,8 @@ from dirtyfunc import Option, Either, Left, Right, Nothing
 from evenflow import utreq
 from evenflow.messages.extracted_data_keeper import ExtractedDataKeeper
 
-from .state import State
-from .feedreader import FeedResult, FeedReader
+from .feedscraperstate import FeedScraperState
+from .feedscraper import FeedResult, FeedScraper
 
 URL = 'url'
 PAGE = 'page'
@@ -62,7 +62,7 @@ class UrlExtractor:
         return Option(self.__page.select_one(selector)).map(lambda tag: tag.get('href'))
 
 
-class FeedReaderHTML(FeedReader):
+class SiteFeed(FeedScraper):
     def __init__(self, name: str, url: str, sel: Union[Dict, Selectors], stop_after: int, fake_news: bool):
         self.name = name
         self.url = url
@@ -73,7 +73,7 @@ class FeedReaderHTML(FeedReader):
     def get_name(self) -> str:
         return self.name
 
-    def recover_state(self, state: State) -> bool:
+    def recover_state(self, state: FeedScraperState) -> bool:
         if state.is_over:
             return False
         self.url = state.data[URL]
@@ -95,8 +95,8 @@ class FeedReaderHTML(FeedReader):
         )
         return Right(defined)
 
-    def to_state(self, over: bool = False) -> State:
-        return State(
+    def to_state(self, over: bool = False) -> FeedScraperState:
+        return FeedScraperState(
             name=self.name,
             is_over=over,
             data={
@@ -104,11 +104,11 @@ class FeedReaderHTML(FeedReader):
                 PAGE: self.stop_after
             })
 
-    def __new_page(self, new_page_url: str) -> Option['FeedReaderHTML']:
+    def __new_page(self, new_page_url: str) -> Option['SiteFeed']:
         if self.stop_after == 0:
             return Nothing()
 
-        defined = FeedReaderHTML(
+        defined = SiteFeed(
             name=self.name,
             url=new_page_url,
             sel=self.sel,
