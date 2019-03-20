@@ -35,7 +35,7 @@ def create_unreliable(conf: Conf) -> UrlSet:
     return unreliable
 
 
-async def main(loop: asyncio.events, conf: Conf) -> float:
+async def asy_main(loop: asyncio.events, conf: Conf) -> float:
     unreliable_set = create_unreliable(conf=conf)
 
     readers = conf.load_sources()
@@ -72,7 +72,7 @@ async def main(loop: asyncio.events, conf: Conf) -> float:
         )
     ]
 
-    consumer_jobs = [asyncio.ensure_future(future, loop=event_loop) for future in futures]
+    consumer_jobs = [asyncio.ensure_future(future, loop=loop) for future in futures]
 
     start_time = time.perf_counter()
     async with ClientSession() as session:
@@ -91,16 +91,20 @@ async def main(loop: asyncio.events, conf: Conf) -> float:
 
     return scrape_time
 
-if __name__ == '__main__':
-    c = conf_from_cli()
 
+def run():
+    c = conf_from_cli()
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
     event_loop = asyncio.get_event_loop()
     try:
-        exec_time = event_loop.run_until_complete(main(loop=event_loop, conf=c))
+        exec_time = event_loop.run_until_complete(asy_main(loop=event_loop, conf=c))
         print(f"job executed in {exec_time:0.2f} seconds.")
     except Exception as err:
-        print(f'main {err}')
+        print(f'asy_main {err}')
         print(traceback.format_exc())
     finally:
         event_loop.close()
+
+
+if __name__ == '__main__':
+    run()
