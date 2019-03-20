@@ -18,7 +18,7 @@ from evenflow.streams.producers import (
     collect_links,
     LinkProducerSettings
 )
-from evenflow.readconf import (
+from evenflow.read_conf import (
     Conf,
     conf_from_cli
 )
