@@ -5,7 +5,7 @@ from aiohttp.client_exceptions import InvalidURL
 from newspaper.configuration import Configuration
 from typing import Optional
 from evenflow import utreq
-from evenflow.streams.messages.article_ext import ArticleExtended
+from evenflow.streams.messages.article_extended import ArticleExtended
 from evenflow.urlman import functions, UrlSet
 
 

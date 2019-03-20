@@ -1,2 +1,2 @@
 from evenflow.readconf import Conf
-from evenflow.pkginfo import *
+from evenflow.pkg_info import *

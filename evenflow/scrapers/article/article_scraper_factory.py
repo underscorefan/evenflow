@@ -1,7 +1,7 @@
 import re
 
 from evenflow.urlman import UrlSet
-from .articlescraper import ArticleScraper, Archive, WebArchive, DefaultArticleScraper
+from .article_scraper import ArticleScraper, Archive, WebArchive, DefaultArticleScraper
 
 
 def article_factory(link: str, source: str, fake: bool, unreliable: UrlSet) -> ArticleScraper:

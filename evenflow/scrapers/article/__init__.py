@@ -1,2 +1,2 @@
-from .asfactory import article_factory
-from .articlescraper import ArticleScraper
+from .article_scraper_factory import article_factory
+from .article_scraper import ArticleScraper

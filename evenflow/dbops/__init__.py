@@ -1,2 +1,2 @@
 from .credentials import DatabaseCredentials
-from .querybuilder import QueryManager
+from .query_builder import QueryManager

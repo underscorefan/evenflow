@@ -1,1 +1,1 @@
-from .collectlinks import collect_links, LinkProducerSettings
+from .collect_links import collect_links, LinkProducerSettings

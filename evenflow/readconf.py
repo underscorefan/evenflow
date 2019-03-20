@@ -6,7 +6,7 @@ from typing import List, Optional, Dict, ItemsView
 from evenflow.urlman import UrlSet
 from evenflow.dbops import DatabaseCredentials
 from evenflow.scrapers.feed import FeedScraperState, FeedScraper, SiteFeed
-from evenflow.pkginfo import short_description
+from evenflow.pkg_info import short_description
 
 
 def read_json_from(path: str):
