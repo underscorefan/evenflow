@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 from dirtyfunc import Option, Either, Left, Right, Nothing
 
 from evenflow import utreq
-from evenflow.messages.extracted_data_keeper import ExtractedDataKeeper
+from evenflow.streams.messages.extracted_data_keeper import ExtractedDataKeeper
 
 from .feedscraperstate import FeedScraperState
 from .feedscraper import FeedResult, FeedScraper
@@ -90,8 +90,8 @@ class SiteFeed(FeedScraper):
 
         defined = FeedResult(
             articles=await self.__extract_links(session, *feed.urls),
-            next_reader=next_reader,
-            current_reader_state=self.to_state(over=next_reader.empty)
+            next_page=next_reader,
+            state=self.to_state(over=next_reader.empty)
         )
         return Right(defined)
 

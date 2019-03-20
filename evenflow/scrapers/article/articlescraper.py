@@ -5,18 +5,18 @@ from aiohttp.client_exceptions import InvalidURL
 from newspaper.configuration import Configuration
 from typing import Optional
 from evenflow import utreq
-from evenflow.messages.article_ext import ArticleExtended
+from evenflow.streams.messages.article_ext import ArticleExtended
 from evenflow.urlman import functions, UrlSet
 
 
-class Scraper(abc.ABC):
+class ArticleScraper(abc.ABC):
 
     @abc.abstractmethod
     async def get_data(self, session: ClientSession, conf: Configuration) -> Optional[ArticleExtended]:
         pass
 
 
-class ArticleScraper(Scraper):
+class DefaultArticleScraper(ArticleScraper):
     def __init__(self, article_link: str, source: str, fake: bool):
         self.article_link = article_link
         self.source = source
@@ -45,7 +45,7 @@ class ArticleScraper(Scraper):
             return None
 
 
-class Archive(ArticleScraper):
+class Archive(DefaultArticleScraper):
     def __init__(self, article_link: str, source: str, fake: bool, unreliable: UrlSet):
         super().__init__(article_link, source, fake)
         self.unrel = unreliable
@@ -67,7 +67,7 @@ class Archive(ArticleScraper):
         return None
 
 
-class WebArchive(ArticleScraper):
+class WebArchive(DefaultArticleScraper):
     def __init__(self, article_link: str, source: str, fake: bool, unreliable: UrlSet):
         super().__init__(article_link, source, fake)
         self.unrel = unreliable

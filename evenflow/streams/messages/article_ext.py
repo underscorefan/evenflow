@@ -4,7 +4,14 @@ from newspaper import Article
 from newspaper.configuration import Configuration
 from evenflow import utreq
 from evenflow.urlman import functions
-from evenflow.messages.functions import check_strings, value_or_none, remove_newlines, min_words_or_none
+
+from .functions import (
+    check_strings,
+    value_or_none,
+    remove_newlines,
+    min_words_or_none
+)
+
 from .storable import Storable
 
 

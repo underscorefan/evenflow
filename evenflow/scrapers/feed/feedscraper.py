@@ -2,7 +2,7 @@ import abc
 from dirtyfunc import Option
 from aiohttp import ClientSession
 
-from evenflow.messages.extracted_data_keeper import ExtractedDataKeeper
+from evenflow.streams.messages.extracted_data_keeper import ExtractedDataKeeper
 from .feedscraperstate import FeedScraperState
 
 
@@ -26,7 +26,7 @@ class FeedScraper(abc.ABC):
 
 
 class FeedResult:
-    def __init__(self, articles: ExtractedDataKeeper, next_reader: Option[FeedScraper], current_reader_state: FeedScraperState):
+    def __init__(self, articles: ExtractedDataKeeper, next_page: Option[FeedScraper], state: FeedScraperState):
         self.articles = articles
-        self.next_reader = next_reader
-        self.current_reader_state = current_reader_state
+        self.next = next_page
+        self.state = state

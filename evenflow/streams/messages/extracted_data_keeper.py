@@ -2,7 +2,7 @@ from typing import Dict, Tuple, ItemsView, List, Callable
 
 from dirtyfunc import Either
 
-from evenflow.messages import Error
+from evenflow.streams.messages import Error
 
 
 class ExtractedDataKeeper:

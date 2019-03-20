@@ -4,7 +4,7 @@ from typing import Dict, Tuple, List
 from aiohttp import ClientSession
 from dirtyfunc import Option
 from evenflow.urlman import UrlSet
-from evenflow.messages import Error, ExtractedDataKeeper
+from evenflow.streams.messages import Error, ExtractedDataKeeper
 from evenflow.scrapers.feed import FeedScraper, FeedScraperState, FeedResult
 
 
@@ -77,9 +77,9 @@ async def collect_links(settings: LinkProducerSettings, to_read: List[FeedScrape
                 print(res.on_left())
                 continue
             feed_result: FeedResult = res.on_right()
-            sender.add_reader(feed_result.next_reader)
+            sender.add_reader(feed_result.next)
             sender.merge_containers(feed_result.articles.filter(lambda k, _: settings.unrel.contains(k)))
-            sender.add_to_backup(feed_result.current_reader_state)
+            sender.add_to_backup(feed_result.state)
 
         await settings.send_channel.put(sender.container)
         iteration_manager.set_readers(sender.get_readers())

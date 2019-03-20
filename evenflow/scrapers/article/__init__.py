@@ -1,2 +1,2 @@
-from .creator import create_article_scraper
-from .scraper import Scraper
+from .asfactory import article_factory
+from .articlescraper import ArticleScraper

@@ -8,8 +8,8 @@ from aiohttp import TCPConnector, ClientSession
 from newspaper.configuration import Configuration
 from dirtyfunc import Either, Left, Right
 
-from evenflow.scrapers.article import create_article_scraper
-from evenflow.messages import ArticleExtended, Error, ExtractedDataKeeper
+from evenflow.scrapers.article import article_factory
+from evenflow.streams.messages import ArticleExtended, Error, ExtractedDataKeeper
 from evenflow.urlman import UrlSet
 
 LIMIT_PER_HOST = 2
@@ -149,7 +149,7 @@ class CoroCreator:
     async def new_coro(self, link: str, item: Tuple[str, bool]) -> Either[Error, ArticleExtended]:
         source, fake = item
         try:
-            scraper = create_article_scraper(link=link, source=source, unreliable=self.unrel, fake=fake)
+            scraper = article_factory(link=link, source=source, unreliable=self.unrel, fake=fake)
             return Right(await scraper.get_data(self.session, self.newspaper_conf))
         except Exception as e:
             return Left(Error.from_exception(exc=e, url=link, source=source))
