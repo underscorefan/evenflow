@@ -63,7 +63,7 @@ class LinkProducerSettings:
         self.send_channel = send_channel
 
 
-async def produce_links(settings: LinkProducerSettings, to_read: List[FeedReader], session: ClientSession):
+async def collect_links(settings: LinkProducerSettings, to_read: List[FeedReader], session: ClientSession):
     iteration_manager = IterationManager(to_read)
 
     while iteration_manager.has_readers():

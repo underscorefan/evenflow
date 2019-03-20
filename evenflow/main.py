@@ -5,18 +5,18 @@ import traceback
 import uvloop
 from aiohttp import ClientSession
 
-from evenflow.consumers.article import (
-    handle_links,
-    DefaultArticleStreamConf,
-    ArticleStreamQueues
+from evenflow.streams.consumers.dispatcher import (
+    dispatch_links,
+    DefaultDispatcher,
+    DispatcherQueues
 )
-from evenflow.consumers.pg import (
+from evenflow.streams.consumers.pg import (
     store_errors,
     store_articles
 )
 from evenflow.urlman import UrlSet
-from evenflow.producers import (
-    produce_links,
+from evenflow.streams.producers import (
+    collect_links,
     LinkProducerSettings
 )
 from evenflow.readconf import (
@@ -57,9 +57,9 @@ async def main(loop: asyncio.events, conf: Conf) -> float:
     pg_pool = await conf.setupdb().make_pool()
 
     futures = [
-        handle_links(
-            stream_conf=DefaultArticleStreamConf(conf.backup_file_path, conf.initial_state),
-            queues=ArticleStreamQueues(links=q[s], storage=q[a], error=q[e]),
+        dispatch_links(
+            stream_conf=DefaultDispatcher(conf.backup_file_path, conf.initial_state),
+            queues=DispatcherQueues(links=q[s], storage=q[a], error=q[e]),
             unreliable=unreliable_set
         ),
         store_articles(
@@ -77,7 +77,7 @@ async def main(loop: asyncio.events, conf: Conf) -> float:
 
     start_time = time.perf_counter()
     async with ClientSession() as session:
-        await produce_links(settings=link_producers_settings, to_read=readers, session=session)
+        await collect_links(settings=link_producers_settings, to_read=readers, session=session)
         scrape_time = time.perf_counter() - start_time
 
     for k in q:

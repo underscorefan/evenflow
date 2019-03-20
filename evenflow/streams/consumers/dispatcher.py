@@ -36,7 +36,7 @@ class BackupManager:
                 await f.write(json.dumps(self.state, indent=self.__INDENT))
 
 
-class ArticleStreamConfiguration:
+class DispatcherSettings:
     def __init__(
             self,
             connector: TCPConnector,
@@ -58,7 +58,7 @@ class ArticleStreamConfiguration:
         return BackupManager(self.backup_path, self.state)
 
 
-class DefaultArticleStreamConf(ArticleStreamConfiguration):
+class DefaultDispatcher(DispatcherSettings):
     def __init__(self, backup_path: Optional[str] = None, initial_state: Optional[Dict] = None):
         super().__init__(
             connector=TCPConnector(limit_per_host=LIMIT_PER_HOST),
@@ -69,7 +69,7 @@ class DefaultArticleStreamConf(ArticleStreamConfiguration):
         )
 
 
-class ArticleStreamQueues:
+class DispatcherQueues:
     def __init__(self, links: asyncio.Queue, storage: asyncio.Queue, error: asyncio.Queue, verbose: bool = True):
         self.links = links
         self.storage = storage
@@ -155,7 +155,7 @@ class CoroCreator:
             return Left(Error.from_exception(exc=e, url=link, source=source))
 
 
-async def handle_links(stream_conf: ArticleStreamConfiguration, queues: ArticleStreamQueues, unreliable: UrlSet):
+async def dispatch_links(stream_conf: DispatcherSettings, queues: DispatcherQueues, unreliable: UrlSet):
     backup_manager = stream_conf.make_backup_manager()
 
     async with stream_conf.make_session() as session:
