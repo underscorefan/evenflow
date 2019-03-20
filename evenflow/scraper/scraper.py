@@ -5,8 +5,8 @@ from aiohttp.client_exceptions import InvalidURL
 from newspaper.configuration import Configuration
 from typing import Optional
 from evenflow.messages.article_ext import ArticleExtended
-from evenflow.helpers.req import fetch_html_get, urlman
-from evenflow.helpers.unreliableset import UnreliableSet
+from evenflow.helpers.req import fetch_html_get
+from evenflow.urlman import functions, UrlSet
 
 
 class Scraper(abc.ABC):
@@ -46,7 +46,7 @@ class ArticleScraper(Scraper):
 
 
 class Archive(ArticleScraper):
-    def __init__(self, article_link: str, source: str, fake: bool, unreliable: UnreliableSet):
+    def __init__(self, article_link: str, source: str, fake: bool, unreliable: UrlSet):
         super().__init__(article_link, source, fake)
         self.unrel = unreliable
 
@@ -68,12 +68,12 @@ class Archive(ArticleScraper):
 
 
 class WebArchive(ArticleScraper):
-    def __init__(self, article_link: str, source: str, fake: bool, unreliable: UnreliableSet):
+    def __init__(self, article_link: str, source: str, fake: bool, unreliable: UrlSet):
         super().__init__(article_link, source, fake)
         self.unrel = unreliable
 
     async def get_data(self, session: ClientSession, conf: Configuration) -> Optional[ArticleExtended]:
-        maybe_url = re.findall("(https?://[^\\s]+)", urlman.maintain_path(self.article_link))
+        maybe_url = re.findall("(https?://[^\\s]+)", functions.maintain_path(self.article_link))
         if len(maybe_url) > 0 and self.unrel.contains(maybe_url[0]):
             article = await super().get_data(session, conf)
             if article is None:

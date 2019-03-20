@@ -3,7 +3,7 @@ import os
 import io
 import json
 from typing import List, Optional, Dict, ItemsView
-from evenflow.helpers.unreliableset import UnreliableSet
+from evenflow.urlman import UrlSet
 from evenflow.dbops import DatabaseCredentials
 from evenflow.readers import State, FeedReader, FeedReaderHTML
 from evenflow.pkginfo import short_description
@@ -48,8 +48,8 @@ class Conf:
 
         return reader
 
-    def load_unreliable(self) -> UnreliableSet:
-        return UnreliableSet(initial_set=set(read_json_from(self.unreliable)))
+    def load_unreliable(self) -> UrlSet:
+        return UrlSet(initial_set=set(read_json_from(self.unreliable)))
 
     @staticmethod
     def __load_backup(path) -> Optional[Dict[str, Dict]]:

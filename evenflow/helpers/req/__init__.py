@@ -3,4 +3,3 @@ from .read_html import (
     fetch_html_get,
     soup_object
 )
-from .urlman import *

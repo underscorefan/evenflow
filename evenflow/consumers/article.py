@@ -10,11 +10,10 @@ from dirtyfunc import Either, Left, Right
 
 from evenflow.scraper import create_article_scraper
 from evenflow.messages import ArticleExtended, Error, ExtractedDataKeeper
-from evenflow.helpers.unreliableset import UnreliableSet
-from evenflow.helpers.req.headers import firefox
-
+from evenflow.urlman import UrlSet
 
 LIMIT_PER_HOST = 2
+firefox = {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:65.0) Gecko/20100101 Firefox/65.0"}
 
 
 def newspaper_config() -> Configuration:
@@ -142,7 +141,7 @@ class ArticleListManager:
 
 
 class CoroCreator:
-    def __init__(self, unrel: UnreliableSet, session: ClientSession, newspaper_conf: Configuration):
+    def __init__(self, unrel: UrlSet, session: ClientSession, newspaper_conf: Configuration):
         self.unrel = unrel
         self.session = session
         self.newspaper_conf = newspaper_conf
@@ -156,7 +155,7 @@ class CoroCreator:
             return Left(Error.from_exception(exc=e, url=link, source=source))
 
 
-async def handle_links(stream_conf: ArticleStreamConfiguration, queues: ArticleStreamQueues, unreliable: UnreliableSet):
+async def handle_links(stream_conf: ArticleStreamConfiguration, queues: ArticleStreamQueues, unreliable: UrlSet):
     backup_manager = stream_conf.make_backup_manager()
 
     async with stream_conf.make_session() as session:

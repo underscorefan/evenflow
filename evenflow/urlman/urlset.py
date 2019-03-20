@@ -1,8 +1,8 @@
 from typing import List, Set, Optional
-from evenflow.helpers.req import maintain_netloc, remove_prefix
+from .functions import maintain_netloc, remove_prefix
 
 
-class UnreliableSet:
+class UrlSet:
     def __init__(self, initial_set: Optional[Set[str]] = None):
         if initial_set is None:
             initial_set = set()

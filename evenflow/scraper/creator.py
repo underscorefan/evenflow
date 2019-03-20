@@ -1,11 +1,11 @@
 import re
 
-from evenflow.helpers.unreliableset import UnreliableSet
+from evenflow.urlman import UrlSet
 from evenflow.scraper import Scraper
 from evenflow.scraper.scraper import Archive, WebArchive, ArticleScraper
 
 
-def create_article_scraper(link: str, source: str, fake: bool, unreliable: UnreliableSet) -> Scraper:
+def create_article_scraper(link: str, source: str, fake: bool, unreliable: UrlSet) -> Scraper:
     if re.match('^https?://archive[.]', link):
         return Archive(link, source, fake, unreliable)
 

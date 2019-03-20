@@ -2,7 +2,8 @@ from typing import Optional, Dict, List
 from bs4 import BeautifulSoup
 from newspaper import Article
 from newspaper.configuration import Configuration
-from evenflow.helpers.req import soup_object, urlman
+from evenflow.helpers.req import soup_object
+from evenflow.urlman import functions
 from evenflow.messages.functions import check_strings, value_or_none, remove_newlines, min_words_or_none
 from .storable import Storable
 
@@ -38,8 +39,8 @@ class ArticleExtended(Article, Storable):
             'url': self.actual_url,
             'visited_url': self.url_to_visit,
             'scraped_from': self.scraped_from,
-            'netloc': urlman.strip(self.actual_url),
-            'path': urlman.maintain_path(self.actual_url),
+            'netloc': functions.strip(self.actual_url),
+            'path': functions.maintain_path(self.actual_url),
             'authors': check_strings(self.authors),
             'images': check_strings(self.images),
             'videos': check_strings(self.movies),

@@ -14,7 +14,7 @@ from evenflow.consumers.pg import (
     store_errors,
     store_articles
 )
-from evenflow.helpers.unreliableset import UnreliableSet
+from evenflow.urlman import UrlSet
 from evenflow.producers import (
     produce_links,
     LinkProducerSettings
@@ -25,7 +25,7 @@ from evenflow.readconf import (
 )
 
 
-def create_unreliable(conf: Conf) -> UnreliableSet:
+def create_unreliable(conf: Conf) -> UrlSet:
     unreliable = conf.load_unreliable()
 
     unreliable.add_multiple(
