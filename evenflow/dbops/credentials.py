@@ -1,8 +1,10 @@
 import asyncpg
-from typing import Optional, Callable
+from typing import Optional, Callable, TypeVar, Awaitable
 
 
 class DatabaseCredentials:
+    T = TypeVar('T')
+
     def __init__(self, user, host, password, name):
         self.credentials = {
             "database": name,
@@ -16,6 +18,14 @@ class DatabaseCredentials:
 
     async def connection(self) -> Optional[asyncpg.connection.Connection]:
         return await self.__args_with(asyncpg.connect)
+
+    async def do_with_connection(self, action: Callable[[asyncpg.connection.Connection], Awaitable[T]]) -> T:
+        conn = await self.connection()
+        if conn:
+            ret = await action(conn)
+            await conn.close()
+            return ret
+        return None
 
     async def __args_with(self, f: Callable) -> Optional:
         try:

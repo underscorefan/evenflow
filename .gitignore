@@ -1,4 +1,5 @@
 .idea/
 data/
+notes
 tests/.pytest_cache
 evenflow/edit_sources.py

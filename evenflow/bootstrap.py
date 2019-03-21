@@ -1,27 +1,26 @@
 import asyncio
 import time
 import traceback
+from typing import List, Tuple
 
 import uvloop
 from aiohttp import ClientSession
 
-from evenflow.streams.consumers import (
-    dispatch_links,
-    DefaultDispatcher,
-    DispatcherQueues,
-    store_errors,
-    store_articles
-)
+from evenflow import Conf
 
+from evenflow.scrapers.feed import FeedScraper
+from evenflow.streams.consumers import dispatch_links, DefaultDispatcher, DispatcherQueues, store_articles, store_errors
+from evenflow.streams.producers import LinkProducerSettings, collect_links
 from evenflow.urlman import UrlSet
-from evenflow.streams.producers import (
-    collect_links,
-    LinkProducerSettings
-)
-from evenflow.read_conf import (
-    Conf,
-    conf_from_cli
-)
+from evenflow.dbops import sources as db_sources, DatabaseCredentials
+
+
+def from_file(path: str):
+    pass
+
+
+def from_list(sources: List[FeedScraper]):
+    pass
 
 
 def create_unreliable(conf: Conf) -> UrlSet:
@@ -35,31 +34,55 @@ def create_unreliable(conf: Conf) -> UrlSet:
     return unreliable
 
 
+async def make_url_sets(cred: DatabaseCredentials) -> Tuple[UrlSet, UrlSet]:
+    records = await cred.do_with_connection(lambda conn: db_sources.select_sources(conn))
+    reliable, unreliable = UrlSet(), UrlSet()
+    true_labels, fake_labels = {'very high', 'high'}, {'mixed', 'low', 'insane stuff', 'satire', 'very low'}
+    for record in records:
+
+        if record['factual_reporting'] in true_labels:
+            reliable.add(record['url'], netloc=False)
+            continue
+
+        if record['factual_reporting'] in fake_labels:
+            unreliable.add(record['url'], netloc=False)
+
+    unreliable.add_multiple(
+        urls=[f"archive.{dom}" for dom in ["is", "fo", "today"]] + ["web.archive.org"],
+        netloc=False
+    )
+
+    return reliable, unreliable
+
+
 async def asy_main(loop: asyncio.events, conf: Conf) -> float:
-    unreliable_set = create_unreliable(conf=conf)
+    # unreliable_set = create_unreliable(conf=conf)
 
-    readers = conf.load_sources()
+    scrapers = conf.load_sources()
 
-    if not readers or len(readers) == 0:
+    if not scrapers or len(scrapers) == 0:
         print("no sources to begin with")
         return 0.0
 
     s, a, e = "sources", "articles", "errors"
     q = {name: asyncio.Queue(loop=loop) for name in [s, a, e]}
 
+    print("about to create pool")
+    db_cred = conf.setupdb()
+
+    pg_pool = await db_cred.make_pool()
+    mark_as_real, mark_as_fake = await make_url_sets(db_cred)
+
     link_producers_settings = LinkProducerSettings(
-        unrel=unreliable_set,
+        unrel=mark_as_fake,
         send_channel=q[s]
     )
-
-    print("about to create pool")
-    pg_pool = await conf.setupdb().make_pool()
 
     futures = [
         dispatch_links(
             stream_conf=DefaultDispatcher(conf.backup_file_path, conf.initial_state),
             queues=DispatcherQueues(links=q[s], storage=q[a], error=q[e]),
-            unreliable=unreliable_set
+            unreliable=mark_as_fake
         ),
         store_articles(
             pool=pg_pool,
@@ -76,7 +99,7 @@ async def asy_main(loop: asyncio.events, conf: Conf) -> float:
 
     start_time = time.perf_counter()
     async with ClientSession() as session:
-        await collect_links(settings=link_producers_settings, to_read=readers, session=session)
+        await collect_links(settings=link_producers_settings, to_scrape=scrapers, session=session)
         scrape_time = time.perf_counter() - start_time
 
     for k in q:
@@ -92,8 +115,7 @@ async def asy_main(loop: asyncio.events, conf: Conf) -> float:
     return scrape_time
 
 
-def run():
-    c = conf_from_cli()
+def run(c: Conf):
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
     event_loop = asyncio.get_event_loop()
     try:
@@ -104,7 +126,3 @@ def run():
         print(traceback.format_exc())
     finally:
         event_loop.close()
-
-
-if __name__ == '__main__':
-    run()

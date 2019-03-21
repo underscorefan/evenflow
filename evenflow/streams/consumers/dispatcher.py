@@ -13,6 +13,7 @@ from evenflow.streams.messages import ArticleExtended, Error, ExtractedDataKeepe
 from evenflow.urlman import UrlSet
 
 LIMIT_PER_HOST = 2
+# TODO this should be moved into configurations
 firefox = {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:65.0) Gecko/20100101 Firefox/65.0"}
 
 

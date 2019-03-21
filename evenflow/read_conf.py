@@ -1,5 +1,4 @@
 import argparse
-import os
 import io
 import json
 from typing import List, Optional, Dict, ItemsView
@@ -74,7 +73,6 @@ def read_cli_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=short_description)
     parser.add_argument('-u', '--unreliable', help="specify unreliable hosts json file", required=True, type=str)
     parser.add_argument('-c', '--conf', help="specify config file location", required=True, type=str)
-    parser.add_argument('-p', '--path', help="base path for files", type=str, default=None)
     return parser.parse_args()
 
 
@@ -88,6 +86,4 @@ def __make_dict(cli: argparse.Namespace) -> Dict[str, str]:
 def conf_from_cli() -> Conf:
     cli = read_cli_args()
     cli_dict = __make_dict(cli)
-    if cli.path is not None:
-        cli_dict = {arg: os.path.join(cli.path, value) for arg, value in cli_dict.items()}
     return Conf(**cli_dict)
