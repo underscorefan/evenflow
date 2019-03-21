@@ -1,8 +1,8 @@
 import argparse
 import io
 import json
+
 from typing import List, Optional, Dict, ItemsView
-from evenflow.urlman import UrlSet
 from evenflow.dbops import DatabaseCredentials
 from evenflow.scrapers.feed import FeedScraperState, FeedScraper, SiteFeed
 from evenflow.pkg_info import short_description
@@ -14,9 +14,8 @@ def read_json_from(path: str):
 
 
 class Conf:
-    def __init__(self, unreliable: str, config_file: str):
+    def __init__(self, config_file: str):
         config_data = read_json_from(config_file)
-        self.unreliable = unreliable
         self.backup_file_path = config_data.get("backup")
         self.initial_state = self.__load_backup(self.backup_file_path)
         self.sources_json = config_data.get("sources")
@@ -47,9 +46,6 @@ class Conf:
 
         return reader
 
-    def load_unreliable(self) -> UrlSet:
-        return UrlSet(initial_set=set(read_json_from(self.unreliable)))
-
     @staticmethod
     def __load_backup(path) -> Optional[Dict[str, Dict]]:
         try:
@@ -71,19 +67,10 @@ class Conf:
 
 def read_cli_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=short_description)
-    parser.add_argument('-u', '--unreliable', help="specify unreliable hosts json file", required=True, type=str)
     parser.add_argument('-c', '--conf', help="specify config file location", required=True, type=str)
     return parser.parse_args()
 
 
-def __make_dict(cli: argparse.Namespace) -> Dict[str, str]:
-    return {
-        'config_file': cli.conf,
-        'unreliable': cli.unreliable
-    }
-
-
 def conf_from_cli() -> Conf:
     cli = read_cli_args()
-    cli_dict = __make_dict(cli)
-    return Conf(**cli_dict)
+    return Conf(cli.conf)

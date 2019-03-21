@@ -23,17 +23,6 @@ def from_list(sources: List[FeedScraper]):
     pass
 
 
-def create_unreliable(conf: Conf) -> UrlSet:
-    unreliable = conf.load_unreliable()
-
-    unreliable.add_multiple(
-        urls=[f"archive.{dom}" for dom in ["is", "fo", "today"]]+["web.archive.org"],
-        netloc=False
-    )
-
-    return unreliable
-
-
 async def make_url_sets(cred: DatabaseCredentials) -> Tuple[UrlSet, UrlSet]:
     records = await cred.do_with_connection(lambda conn: db_sources.select_sources(conn))
     reliable, unreliable = UrlSet(), UrlSet()
@@ -71,10 +60,10 @@ async def asy_main(loop: asyncio.events, conf: Conf) -> float:
     db_cred = conf.setupdb()
 
     pg_pool = await db_cred.make_pool()
-    mark_as_real, mark_as_fake = await make_url_sets(db_cred)
+    reliable, unreliable = await make_url_sets(db_cred)
 
     link_producers_settings = LinkProducerSettings(
-        unrel=mark_as_fake,
+        unrel=unreliable,
         send_channel=q[s]
     )
 
@@ -82,7 +71,7 @@ async def asy_main(loop: asyncio.events, conf: Conf) -> float:
         dispatch_links(
             stream_conf=DefaultDispatcher(conf.backup_file_path, conf.initial_state),
             queues=DispatcherQueues(links=q[s], storage=q[a], error=q[e]),
-            unreliable=mark_as_fake
+            unreliable=unreliable
         ),
         store_articles(
             pool=pg_pool,
