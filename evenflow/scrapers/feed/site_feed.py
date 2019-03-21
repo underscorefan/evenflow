@@ -6,8 +6,8 @@ from dirtyfunc import Option, Either, Left, Right, Nothing
 from evenflow import utreq
 from evenflow.streams.messages.extracted_data_keeper import ExtractedDataKeeper
 
-from .feedscraperstate import FeedScraperState
-from .feedscraper import FeedResult, FeedScraper
+from .feed_scraper_state import FeedScraperState
+from .feed_scraper import FeedResult, FeedScraper
 
 URL = 'url'
 PAGE = 'page'

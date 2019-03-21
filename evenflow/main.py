@@ -44,7 +44,7 @@ async def asy_main(loop: asyncio.events, conf: Conf) -> float:
         print("no sources to begin with")
         return 0.0
 
-    s, a, e = ("sources", "articles", "errors")
+    s, a, e = "sources", "articles", "errors"
     q = {name: asyncio.Queue(loop=loop) for name in [s, a, e]}
 
     link_producers_settings = LinkProducerSettings(

@@ -3,7 +3,7 @@ from dirtyfunc import Option
 from aiohttp import ClientSession
 
 from evenflow.streams.messages.extracted_data_keeper import ExtractedDataKeeper
-from .feedscraperstate import FeedScraperState
+from .feed_scraper_state import FeedScraperState
 
 
 class FeedScraper(abc.ABC):

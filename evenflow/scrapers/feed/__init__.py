@@ -1,3 +1,3 @@
-from .feedscraper import FeedScraper, FeedResult
-from .sitefeed import SiteFeed
-from .feedscraperstate import FeedScraperState
+from .feed_scraper import FeedScraper, FeedResult
+from .site_feed import SiteFeed
+from .feed_scraper_state import FeedScraperState
