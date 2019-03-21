@@ -63,7 +63,14 @@ class UrlExtractor:
 
 
 class SiteFeed(FeedScraper):
-    def __init__(self, name: str, url: str, sel: Union[Dict, Selectors], stop_after: int, fake_news: bool):
+    def __init__(
+            self,
+            name: str,
+            url: str,
+            sel: Union[Dict, Selectors],
+            stop_after: int,
+            fake_news: bool
+    ):
         self.name = name
         self.url = url
         self.stop_after = stop_after

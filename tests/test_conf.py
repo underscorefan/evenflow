@@ -1,17 +1,13 @@
 from evenflow import Conf
 from evenflow.scrapers.feed.site_feed import PAGE, URL
-from functools import partial
 
 
-def add_backup_to(config_file: str):
-    return partial(Conf, config_file=config_file, host_cache='', unreliable='')
-
-
-base_fake_conf = add_backup_to(config_file='./data/fake_conf.json')
+def base_conf(config_file: str):
+    return Conf(config_file=config_file, unreliable='')
 
 
 def test_conf_sources():
-    c = base_fake_conf(backup_file_path='')
+    c = base_conf('./data/fake_conf.json')
 
     name_set = {'snf', 'tof'}
     sources = c.load_sources()
@@ -22,7 +18,7 @@ def test_conf_sources():
 
 
 def test_conf_backup():
-    c = base_fake_conf(backup_file_path='./data/backup.json')
+    c = base_conf('./data/fake_conf.json')
 
     expected_state_data = {
         "after": 93,
@@ -40,6 +36,6 @@ def test_conf_backup():
 
 
 def test_conf_over():
-    c = base_fake_conf(backup_file_path='./data/backup_over.json')
+    c = base_conf('./data/fake_conf_over.json')
     assert len(c.load_sources()) == 1
 

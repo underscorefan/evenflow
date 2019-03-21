@@ -15,11 +15,11 @@ def read_json_from(path: str):
 
 
 class Conf:
-    def __init__(self, unreliable: str, backup_file_path: str, config_file: str):
+    def __init__(self, unreliable: str, config_file: str):
         config_data = read_json_from(config_file)
         self.unreliable = unreliable
-        self.backup_file_path = backup_file_path
-        self.initial_state = self.__load_backup(backup_file_path)
+        self.backup_file_path = config_data.get("backup")
+        self.initial_state = self.__load_backup(self.backup_file_path)
         self.sources_json = config_data.get("sources")
         self.pg_cred = config_data.get("pg_cred")
 
@@ -73,7 +73,6 @@ class Conf:
 def read_cli_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=short_description)
     parser.add_argument('-u', '--unreliable', help="specify unreliable hosts json file", required=True, type=str)
-    parser.add_argument('-b', '--backup', help="specify where to save back-up", required=True, type=str)
     parser.add_argument('-c', '--conf', help="specify config file location", required=True, type=str)
     parser.add_argument('-p', '--path', help="base path for files", type=str, default=None)
     return parser.parse_args()
@@ -81,7 +80,6 @@ def read_cli_args() -> argparse.Namespace:
 
 def __make_dict(cli: argparse.Namespace) -> Dict[str, str]:
     return {
-        'backup_file_path': cli.backup,
         'config_file': cli.conf,
         'unreliable': cli.unreliable
     }
