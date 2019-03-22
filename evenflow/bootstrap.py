@@ -45,11 +45,9 @@ async def make_url_sets(cred: DatabaseCredentials) -> Tuple[UrlSet, UrlSet]:
 
 
 async def asy_main(loop: asyncio.events, conf: Conf) -> float:
-    # unreliable_set = create_unreliable(conf=conf)
+    feeds = conf.load_sources()
 
-    scrapers = conf.load_sources()
-
-    if not scrapers or len(scrapers) == 0:
+    if not feeds or len(feeds) == 0:
         print("no sources to begin with")
         return 0.0
 
@@ -88,7 +86,7 @@ async def asy_main(loop: asyncio.events, conf: Conf) -> float:
 
     start_time = time.perf_counter()
     async with ClientSession() as session:
-        await collect_links(settings=link_producers_settings, to_scrape=scrapers, session=session)
+        await collect_links(settings=link_producers_settings, to_scrape=feeds, session=session)
         scrape_time = time.perf_counter() - start_time
 
     for k in q:

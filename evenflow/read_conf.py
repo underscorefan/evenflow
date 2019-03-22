@@ -1,11 +1,9 @@
-import argparse
 import io
 import json
 
 from typing import List, Optional, Dict, ItemsView
 from evenflow.dbops import DatabaseCredentials
 from evenflow.scrapers.feed import FeedScraperState, FeedScraper, SiteFeed
-from evenflow.pkg_info import short_description
 
 
 def read_json_from(path: str):
@@ -63,14 +61,3 @@ class Conf:
             )
         except KeyError:
             return None
-
-
-def read_cli_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=short_description)
-    parser.add_argument('-c', '--conf', help="specify config file location", required=True, type=str)
-    return parser.parse_args()
-
-
-def conf_from_cli() -> Conf:
-    cli = read_cli_args()
-    return Conf(cli.conf)
