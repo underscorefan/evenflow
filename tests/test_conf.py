@@ -3,7 +3,7 @@ from evenflow.scrapers.feed.site_feed import PAGE, URL
 
 
 def base_conf(config_file: str):
-    return Conf(config_file=config_file, unreliable='')
+    return Conf(config_file=config_file)
 
 
 def test_conf_sources():

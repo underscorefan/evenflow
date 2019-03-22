@@ -1,7 +1,7 @@
 import asyncio
 import json
 
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, List, Dict, Tuple, Callable
 
 import aiofiles
 from aiohttp import TCPConnector, ClientSession
@@ -14,7 +14,6 @@ from evenflow.urlman import UrlSet
 
 LIMIT_PER_HOST = 2
 
-# TODO this should be moved into configurations
 firefox = {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:65.0) Gecko/20100101 Firefox/65.0"}
 
 
@@ -44,13 +43,15 @@ class DispatcherSettings:
             connector: TCPConnector,
             headers: Dict[str, str],
             newspaper_conf: Configuration,
+            can_add: Callable[[str, bool], bool],
             backup_path: Optional[str] = None,
             initial_state: Optional[Dict] = None
     ):
         self.connector = connector
         self.headers = headers
-        self.backup_path = backup_path
         self.newspaper_conf = newspaper_conf
+        self.__can_add = can_add
+        self.backup_path = backup_path
         self.state = initial_state
 
     def make_session(self) -> ClientSession:
@@ -59,12 +60,22 @@ class DispatcherSettings:
     def make_backup_manager(self) -> BackupManager:
         return BackupManager(self.backup_path, self.state)
 
+    def can_add(self, url: str, item: Tuple[str, bool]):
+        _, from_fake = item
+        return self.__can_add(url, from_fake)
+
 
 class DefaultDispatcher(DispatcherSettings):
-    def __init__(self, backup_path: Optional[str] = None, initial_state: Optional[Dict] = None):
+    def __init__(
+            self,
+            can_add: Callable[[str, bool], bool],
+            backup_path: Optional[str] = None,
+            initial_state: Optional[Dict] = None
+    ):
         super().__init__(
             connector=TCPConnector(limit_per_host=LIMIT_PER_HOST),
             headers=firefox,
+            can_add=can_add,
             backup_path=backup_path,
             initial_state=initial_state,
             newspaper_conf=newspaper_config()
@@ -72,11 +83,10 @@ class DefaultDispatcher(DispatcherSettings):
 
 
 class DispatcherQueues:
-    def __init__(self, links: asyncio.Queue, storage: asyncio.Queue, error: asyncio.Queue, verbose: bool = True):
+    def __init__(self, links: asyncio.Queue, storage: asyncio.Queue, error: asyncio.Queue):
         self.links = links
         self.storage = storage
         self.error = error
-        self.verbose = verbose
 
     async def create_and_send_error(self, message: str, link: str, source: str):
         await self.error.put(Error(msg=message, url=link, source=source))
@@ -85,8 +95,7 @@ class DispatcherQueues:
         await self.error.put(error)
 
     async def send_articles(self, articles: List[ArticleExtended]):
-        if self.verbose:
-            print(f"sending {len(articles)}")
+        print(f"sending {len(articles)}")
         await self.storage.put(articles)
 
     async def receive_links(self) -> ExtractedDataKeeper:
@@ -96,7 +105,7 @@ class DispatcherQueues:
         self.links.task_done()
 
 
-class ArticleChecker:
+class DuplicateChecker:
     def __init__(self):
         self.duplicate_title = set()
         self.duplicate_url = set()
@@ -127,7 +136,7 @@ class ArticleChecker:
 
 class ArticleListManager:
     def __init__(self, verbose=True):
-        self._checker = ArticleChecker()
+        self._checker = DuplicateChecker()
         self._list: List[ArticleExtended] = []
         self._verbose = verbose
 
@@ -163,14 +172,14 @@ async def dispatch_links(stream_conf: DispatcherSettings, queues: DispatcherQueu
     async with stream_conf.make_session() as session:
         coro_creator = CoroCreator(unrel=unreliable, session=session, newspaper_conf=stream_conf.newspaper_conf)
         while True:
-            link_container = await queues.receive_links()
+            extracted_data = (await queues.receive_links()).filter(lambda url, fake: stream_conf.can_add(url, fake))
             article_list = ArticleListManager()
-            results = asyncio.gather(*[coro_creator.new_coro(link, item) for link, item in link_container.items])
+            results = asyncio.gather(*[coro_creator.new_coro(link, item) for link, item in extracted_data.items])
 
             for result in await results:
                 result.map(lambda article: article_list.add(article)).on_right(lambda m: print(m))
                 await result.on_left_awaitable(lambda e: queues.send_error(e))
 
             await queues.send_articles(article_list.get)
-            await backup_manager.store(link_container.backup)
+            await backup_manager.store(extracted_data.backup)
             queues.mark_links()

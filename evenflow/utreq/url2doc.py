@@ -2,13 +2,19 @@ from bs4 import BeautifulSoup
 from aiohttp import ClientSession
 from dirtyfunc import Either
 
-
 __DECODER = "html5lib"
 
 
+class HttpStatusError(Exception):
+    """raised when http response status is not 200"""
+    pass
+
+
 async def __get_request(url: str, session: ClientSession) -> str:
-    resp = await session.request(method="GET", url=url)
-    return await resp.text()
+    async with session.request(method="GET", url=url) as resp:
+        if resp.status != 200:
+            raise HttpStatusError(f'{url} responded with {resp.status}')
+        return await resp.text()
 
 
 async def new_soup(url: str, session: ClientSession) -> Either[Exception, BeautifulSoup]:

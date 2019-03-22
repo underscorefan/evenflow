@@ -3,7 +3,6 @@ import asyncio
 from typing import Dict, Tuple, List
 from aiohttp import ClientSession
 from dirtyfunc import Option
-from evenflow.urlman import UrlSet
 from evenflow.streams.messages import Error, ExtractedDataKeeper
 from evenflow.scrapers.feed import FeedScraper, FeedScraperState, FeedResult
 
@@ -12,14 +11,14 @@ class Sender:
     def __init__(self):
         self.__articles: ExtractedDataKeeper = ExtractedDataKeeper()
         self.__backup: Dict[str, Dict] = dict()
-        self.__readers: List[FeedScraper] = []
+        self.__feed_scrapers: List[FeedScraper] = []
 
-    def add_reader(self, reader: Option[FeedScraper]):
+    def add_feed_scraper(self, reader: Option[FeedScraper]):
         if not reader.empty:
-            self.__readers.append(reader.on_value())
+            self.__feed_scrapers.append(reader.on_value())
 
-    def get_readers(self) -> List[FeedScraper]:
-        return self.__readers
+    def get_feed_scrapers(self) -> List[FeedScraper]:
+        return self.__feed_scrapers
 
     def merge_containers(self, articles: ExtractedDataKeeper):
         self.__articles = self.__articles + articles
@@ -44,32 +43,26 @@ class Sender:
 
 
 class IterationManager:
-    def __init__(self, initial_readers: List[FeedScraper]):
-        self.__readers = initial_readers
+    def __init__(self, feed_scrapers: List[FeedScraper]):
+        self.__feed_scrapers = feed_scrapers
 
-    def has_readers(self) -> bool:
-        return len(self.__readers) > 0
+    def has_feed_scrapers(self) -> bool:
+        return len(self.__feed_scrapers) > 0
 
-    def set_readers(self, readers: List[FeedScraper]):
-        self.__readers = readers
+    def set_feed_scrapers(self, readers: List[FeedScraper]):
+        self.__feed_scrapers = readers
 
-    def get_readers(self) -> List[FeedScraper]:
-        return self.__readers
-
-
-class LinkProducerSettings:
-    def __init__(self, unrel: UrlSet, send_channel: asyncio.Queue):
-        self.unrel = unrel
-        self.send_channel = send_channel
+    def get_feed_scrapers(self) -> List[FeedScraper]:
+        return self.__feed_scrapers
 
 
-async def collect_links(settings: LinkProducerSettings, to_scrape: List[FeedScraper], session: ClientSession):
+async def collect_links(send_channel: asyncio.Queue, to_scrape: List[FeedScraper], session: ClientSession):
     iteration_manager = IterationManager(to_scrape)
 
-    while iteration_manager.has_readers():
-        readers = iteration_manager.get_readers()
-        print([reader.get_name() for reader in readers])
-        coroutines = [reader.fetch_links(session) for reader in readers]
+    while iteration_manager.has_feed_scrapers():
+        feed_scrapers = iteration_manager.get_feed_scrapers()
+        print([feed_scraper.get_name() for feed_scraper in feed_scrapers])
+        coroutines = [feed_scraper.fetch_links(session) for feed_scraper in feed_scrapers]
         sender = Sender()
 
         for res in await asyncio.gather(*coroutines):
@@ -77,9 +70,9 @@ async def collect_links(settings: LinkProducerSettings, to_scrape: List[FeedScra
                 print(res.on_left())
                 continue
             feed_result: FeedResult = res.on_right()
-            sender.add_reader(feed_result.next)
-            sender.merge_containers(feed_result.articles.filter(lambda k, _: settings.unrel.contains(k)))
+            sender.add_feed_scraper(feed_result.next)
+            sender.merge_containers(feed_result.articles)
             sender.add_to_backup(feed_result.state)
 
-        await settings.send_channel.put(sender.container)
-        iteration_manager.set_readers(sender.get_readers())
+        await send_channel.put(sender.container)
+        iteration_manager.set_feed_scrapers(sender.get_feed_scrapers())
