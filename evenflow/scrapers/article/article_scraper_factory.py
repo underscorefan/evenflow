@@ -1,14 +1,13 @@
 import re
 
-from evenflow.urlman import UrlSet
 from .article_scraper import ArticleScraper, Archive, WebArchive, DefaultArticleScraper
 
 
-def article_factory(link: str, source: str, fake: bool, unreliable: UrlSet) -> ArticleScraper:
+def article_factory(link: str, source: str, fake: bool) -> ArticleScraper:
     if re.match('^https?://archive[.]', link):
-        return Archive(link, source, fake, unreliable)
+        return Archive(link, source, fake)
 
     if re.match('^https?://web[.]archive[.]', link):
-        return WebArchive(link, source, fake, unreliable)
+        return WebArchive(link, source, fake)
 
     return DefaultArticleScraper(link, source, fake)

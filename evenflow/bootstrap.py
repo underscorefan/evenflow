@@ -48,27 +48,18 @@ async def asy_main(loop: asyncio.events, conf: Conf) -> float:
     pg_pool = await db_cred.make_pool()
     reliable, unreliable = await make_url_sets(db_cred)
 
-    stream_conf = consumers.DefaultDispatcher(
+    dispatcher_conf = consumers.DefaultDispatcher(
         backup_path=conf.backup_file_path,
         initial_state=conf.initial_state,
-        can_add=lambda url, from_fake: unreliable.contains(url) if from_fake else reliable.contains(url)
+        extract_if=lambda url, from_fake: unreliable.contains(url) if from_fake else reliable.contains(url)
     )
 
+    dispatcher_queues = consumers.DispatcherQueues(links=q[s], storage=q[a], error=q[e])
+
     futures = [
-        consumers.dispatch_links(
-            stream_conf=stream_conf,
-            queues=consumers.DispatcherQueues(links=q[s], storage=q[a], error=q[e]),
-            unreliable=unreliable
-        ),
-        consumers.store_articles(
-            pool=pg_pool,
-            storage_queue=q[a],
-            error_queue=q[e]
-        ),
-        consumers.store_errors(
-            pool=pg_pool,
-            error_queue=q[e]
-        )
+        consumers.dispatch_links(conf=dispatcher_conf, queues=dispatcher_queues),
+        consumers.store_articles(pool=pg_pool, storage_queue=q[a], error_queue=q[e]),
+        consumers.store_errors(pool=pg_pool, error_queue=q[e])
     ]
 
     consumer_jobs = [asyncio.ensure_future(future, loop=loop) for future in futures]

@@ -32,11 +32,12 @@ class ArticleExtended(Article, Storable):
         self.actual_url: str = url_to_visit
         self.__text_length: Optional[int] = None
 
-    def correct_title(self):
+    def correct_title(self) -> 'ArticleExtended':
         if self.title.strip().endswith("…"):
             title_cmd = self.soup.select_one("title").text.strip()
             index = self.__find_last(title_cmd)
             self.set_title(title_cmd[:index] if index is not None else title_cmd)
+        return self
 
     def to_sql_dict(self) -> Dict[str, str]:
         return {
@@ -64,17 +65,19 @@ class ArticleExtended(Article, Storable):
     def columns() -> List[str]:
         return article_sql_fields()
 
-    def set_actual_url(self, url: str):
+    def set_actual_url(self, url: str) -> 'ArticleExtended':
         self.actual_url = url
+        return self
 
     def text_length(self) -> int:
         if self.__text_length is None:
             self.__text_length = len(self.text)
         return self.__text_length
 
-    def remove_newlines_from_fields(self):
+    def remove_newlines_from_fields(self) -> 'ArticleExtended':
         self.set_text(remove_newlines(self.text))
         self.set_summary(remove_newlines(self.summary))
+        return self
 
     @staticmethod
     def __find_last(title: str) -> Optional[int]:

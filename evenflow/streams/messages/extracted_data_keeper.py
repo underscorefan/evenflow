@@ -29,6 +29,7 @@ class ExtractedDataKeeper:
         ret = ExtractedDataKeeper()
         ret.append_links({k: v for k, v in self.__links_to_send.items() if func(k, v)})
         ret.append_errors(self.errors)
+        ret.set_backup(self.backup)
         return ret
 
     def set_backup(self, bkp: Dict[str, Dict]) -> 'ExtractedDataKeeper':

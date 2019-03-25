@@ -10,7 +10,6 @@ from dirtyfunc import Either, Left, Right
 
 from evenflow.scrapers.article import article_factory
 from evenflow.streams.messages import ArticleExtended, Error, ExtractedDataKeeper
-from evenflow.urlman import UrlSet
 
 LIMIT_PER_HOST = 2
 
@@ -43,14 +42,14 @@ class DispatcherSettings:
             connector: TCPConnector,
             headers: Dict[str, str],
             newspaper_conf: Configuration,
-            can_add: Callable[[str, bool], bool],
+            extract_if: Callable[[str, bool], bool],
             backup_path: Optional[str] = None,
             initial_state: Optional[Dict] = None
     ):
         self.connector = connector
         self.headers = headers
         self.newspaper_conf = newspaper_conf
-        self.__can_add = can_add
+        self.extract_if = extract_if
         self.backup_path = backup_path
         self.state = initial_state
 
@@ -60,22 +59,22 @@ class DispatcherSettings:
     def make_backup_manager(self) -> BackupManager:
         return BackupManager(self.backup_path, self.state)
 
-    def can_add(self, url: str, item: Tuple[str, bool]):
+    def unpack_extract_if(self, url: str, item: Tuple[str, bool]):
         _, from_fake = item
-        return self.__can_add(url, from_fake)
+        return self.extract_if(url, from_fake)
 
 
 class DefaultDispatcher(DispatcherSettings):
     def __init__(
             self,
-            can_add: Callable[[str, bool], bool],
+            extract_if: Callable[[str, bool], bool],
             backup_path: Optional[str] = None,
             initial_state: Optional[Dict] = None
     ):
         super().__init__(
             connector=TCPConnector(limit_per_host=LIMIT_PER_HOST),
             headers=firefox,
-            can_add=can_add,
+            extract_if=extract_if,
             backup_path=backup_path,
             initial_state=initial_state,
             newspaper_conf=newspaper_config()
@@ -135,45 +134,67 @@ class DuplicateChecker:
 
 
 class ArticleListManager:
-    def __init__(self, verbose=True):
-        self._checker = DuplicateChecker()
-        self._list: List[ArticleExtended] = []
-        self._verbose = verbose
+    def __init__(self, url_checker: Callable[[str, bool], bool]):
+        self.__duplicate_checker = DuplicateChecker()
+        self.__list: List[ArticleExtended] = []
+        self.__url_checker = url_checker
 
     def add(self, a: ArticleExtended) -> Optional[str]:
-        if self._checker.is_valid(a):
-            self._list.append(a)
-            return f"{a.actual_url} appended" if self._verbose else None
-        return None
+        if a.actual_url != a.url_to_visit and not self.__url_checker(a.actual_url, a.fake):
+            return None
+
+        if not self.__duplicate_checker.is_valid(a):
+            return None
+
+        self.__list.append(a)
+        return f"{a.actual_url} appended"
 
     @property
     def get(self) -> List[ArticleExtended]:
-        return self._list
+        return self.__list
 
 
 class CoroCreator:
-    def __init__(self, unrel: UrlSet, session: ClientSession, newspaper_conf: Configuration):
-        self.unrel = unrel
+    def __init__(
+            self,
+            extract_if_function: Callable[[str, bool], bool],
+            session: ClientSession,
+            newspaper_conf: Configuration
+    ):
+        self.extract_if_function = extract_if_function
         self.session = session
         self.newspaper_conf = newspaper_conf
 
     async def new_coro(self, link: str, item: Tuple[str, bool]) -> Either[Error, ArticleExtended]:
         source, fake = item
         try:
-            scraper = article_factory(link=link, source=source, unreliable=self.unrel, fake=fake)
-            return Right(await scraper.get_data(self.session, self.newspaper_conf))
+            scraper = article_factory(link=link, source=source, fake=fake)
+            maybe_article = await scraper.get_data(self.session, self.newspaper_conf)
+
+            if maybe_article.empty:
+                return Left(maybe_article.on_left(lambda exc: Error.from_exception(exc=exc, url=link, source=source)))
+
+            return Right(maybe_article.on_right())
+
         except Exception as e:
             return Left(Error.from_exception(exc=e, url=link, source=source))
 
 
-async def dispatch_links(stream_conf: DispatcherSettings, queues: DispatcherQueues, unreliable: UrlSet):
-    backup_manager = stream_conf.make_backup_manager()
+async def dispatch_links(conf: DispatcherSettings, queues: DispatcherQueues):
+    backup_manager = conf.make_backup_manager()
 
-    async with stream_conf.make_session() as session:
-        coro_creator = CoroCreator(unrel=unreliable, session=session, newspaper_conf=stream_conf.newspaper_conf)
+    async with conf.make_session() as session:
+        coro_creator = CoroCreator(
+            extract_if_function=conf.extract_if,
+            session=session,
+            newspaper_conf=conf.newspaper_conf
+        )
+
         while True:
-            extracted_data = (await queues.receive_links()).filter(lambda url, fake: stream_conf.can_add(url, fake))
-            article_list = ArticleListManager()
+            extracted_data = (await queues.receive_links())\
+                .filter(lambda url, item: conf.unpack_extract_if(url, item))
+
+            article_list = ArticleListManager(conf.extract_if)
             results = asyncio.gather(*[coro_creator.new_coro(link, item) for link, item in extracted_data.items])
 
             for result in await results:
@@ -182,4 +203,5 @@ async def dispatch_links(stream_conf: DispatcherSettings, queues: DispatcherQueu
 
             await queues.send_articles(article_list.get)
             await backup_manager.store(extracted_data.backup)
+
             queues.mark_links()
