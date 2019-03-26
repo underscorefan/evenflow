@@ -36,13 +36,43 @@ class BackupManager:
                 await f.write(json.dumps(self.state, indent=self.__INDENT))
 
 
+class ArticleRules:
+    def __init__(self, url_checker: Callable[[str, bool], bool]):
+        self.__url_checker = url_checker
+        self.__custom_checks: List[Callable[[ArticleExtended], bool]] = []
+
+    def add_check(self, check: Callable[[ArticleExtended], bool]):
+        self.__custom_checks.append(check)
+
+    def add_title_check(self, check: Callable[[str], bool]):
+        self.add_check(lambda a: check(a.title))
+
+    def add_text_check(self, check: Callable[[str], bool]):
+        self.add_check(lambda a: check(a.text))
+
+    def add_path_check(self, check: Callable[[str], bool]):
+        self.add_check(lambda a: check(a.path))
+
+    def add_url_check(self, check: Callable[[str], bool]):
+        self.add_check(lambda a: check(a.actual_url))
+
+    def url_is_valid(self, url: str, from_fake: bool) -> bool:
+        return self.__url_checker(url, from_fake)
+
+    def pass_checks(self, a: ArticleExtended) -> bool:
+        for check in self.__custom_checks:
+            if not check(a):
+                return False
+        return True
+
+
 class DispatcherSettings:
     def __init__(
             self,
             connector: TCPConnector,
             headers: Dict[str, str],
             newspaper_conf: Configuration,
-            extract_if: Callable[[str, bool], bool],
+            rules: ArticleRules,
             backup_path: Optional[str] = None,
             initial_state: Optional[Dict] = None,
             timeout: Optional[int] = 60
@@ -50,7 +80,7 @@ class DispatcherSettings:
         self.connector = connector
         self.headers = headers
         self.newspaper_conf = newspaper_conf
-        self.extract_if = extract_if
+        self.rules = rules
         self.backup_path = backup_path
         self.state = initial_state
         self.timeout = timeout
@@ -61,22 +91,22 @@ class DispatcherSettings:
     def make_backup_manager(self) -> BackupManager:
         return BackupManager(self.backup_path, self.state)
 
-    def unpack_extract_if(self, url: str, item: Tuple[str, bool]):
+    def unpack_check(self, url: str, item: Tuple[str, bool]):
         _, from_fake = item
-        return self.extract_if(url, from_fake)
+        return self.rules.url_is_valid(url, from_fake)
 
 
 class DefaultDispatcher(DispatcherSettings):
     def __init__(
             self,
-            extract_if: Callable[[str, bool], bool],
+            rules: ArticleRules,
             backup_path: Optional[str] = None,
             initial_state: Optional[Dict] = None
     ):
         super().__init__(
             connector=TCPConnector(limit_per_host=LIMIT_PER_HOST),
             headers=firefox,
-            extract_if=extract_if,
+            rules=rules,
             backup_path=backup_path,
             initial_state=initial_state,
             newspaper_conf=newspaper_config()
@@ -136,16 +166,19 @@ class DuplicateChecker:
 
 
 class ArticleListManager:
-    def __init__(self, url_checker: Callable[[str, bool], bool]):
+    def __init__(self, rules: ArticleRules):
         self.__duplicate_checker = DuplicateChecker()
         self.__list: List[ArticleExtended] = []
-        self.__url_checker = url_checker
+        self.rules = rules
 
     def add(self, a: ArticleExtended) -> Optional[str]:
-        if a.actual_url != a.url_to_visit and not self.__url_checker(a.actual_url, a.fake):
+        if not self.__duplicate_checker.is_valid(a):
             return None
 
-        if not self.__duplicate_checker.is_valid(a):
+        if a.actual_url != a.url_to_visit and not self.rules.url_is_valid(a.actual_url, a.fake):
+            return None
+
+        if not self.rules.pass_checks(a):
             return None
 
         self.__list.append(a)
@@ -155,8 +188,9 @@ class ArticleListManager:
     def get(self) -> List[ArticleExtended]:
         return self.__list
 
-    def free_list(self):
+    def free_resources(self):
         self.__list = []
+        self.__duplicate_checker = DuplicateChecker()
 
 
 class CoroCreator:
@@ -181,46 +215,16 @@ class CoroCreator:
             return Left(Error.from_exception(exc=e, url=link, source=source))
 
 
-class ArticleRules:
-    def __init__(self, url_checker: Callable[[str, bool], bool]):
-        self.__url_checker = url_checker
-        self.__custom_checks: List[Callable[[ArticleExtended], bool]] = []
-
-    def add_check(self, check: Callable[[ArticleExtended], bool]):
-        self.__custom_checks.append(check)
-
-    def add_title_check(self, check: Callable[[str], bool]):
-        self.add_check(lambda a: check(a.title))
-
-    def add_text_check(self, check: Callable[[str], bool]):
-        self.add_check(lambda a: check(a.text))
-
-    def add_path_check(self, check: Callable[[str], bool]):
-        self.add_check(lambda a: check(a.path))
-
-    def add_url_check(self, check: Callable[[str], bool]):
-        self.add_check(lambda a: check(a.actual_url))
-
-    def url_is_valid(self, url: str, from_fake: bool) -> bool:
-        return self.__url_checker(url, from_fake)
-
-    def pass_checks(self, a: ArticleExtended) -> bool:
-        for check in self.__custom_checks:
-            if not check(a):
-                return False
-        return True
-
-
 async def dispatch_links(conf: DispatcherSettings, queues: DispatcherQueues):
     backup_manager = conf.make_backup_manager()
 
     async with conf.make_session() as session:
         coro_creator = CoroCreator(session=session, newspaper_conf=conf.newspaper_conf, timeout=conf.timeout)
-        article_list = ArticleListManager(conf.extract_if)
+        article_list = ArticleListManager(conf.rules)
 
         while True:
             links = await queues.receive_links()
-            extracted_data = links.filter(lambda url, item: conf.unpack_extract_if(url, item))
+            extracted_data = links.filter(lambda url, item: conf.unpack_check(url, item))
 
             results = asyncio.gather(*[coro_creator.new_coro(link, item) for link, item in extracted_data.items])
 
@@ -233,6 +237,6 @@ async def dispatch_links(conf: DispatcherSettings, queues: DispatcherQueues):
             await queues.send_articles(article_list.get)
             await backup_manager.store(extracted_data.backup)
 
-            article_list.free_list()
+            article_list.free_resources()
 
             queues.mark_links()

@@ -48,10 +48,16 @@ async def asy_main(loop: asyncio.events, conf: Conf) -> float:
     pg_pool = await db_cred.make_pool()
     reliable, unreliable = await make_url_sets(db_cred)
 
+    article_rules = conf.load_rules_into(
+        consumers.ArticleRules(
+            lambda url, from_fake: unreliable.contains(url) if from_fake else reliable.contains(url)
+        )
+    )
+
     dispatcher_conf = consumers.DefaultDispatcher(
         backup_path=conf.backup_file_path,
         initial_state=conf.initial_state,
-        extract_if=lambda url, from_fake: unreliable.contains(url) if from_fake else reliable.contains(url)
+        rules=article_rules
     )
 
     dispatcher_queues = consumers.DispatcherQueues(links=q[s], storage=q[a], error=q[e])
