@@ -155,13 +155,7 @@ class ArticleListManager:
 
 
 class CoroCreator:
-    def __init__(
-            self,
-            extract_if_function: Callable[[str, bool], bool],
-            session: ClientSession,
-            newspaper_conf: Configuration
-    ):
-        self.extract_if_function = extract_if_function
+    def __init__(self, session: ClientSession, newspaper_conf: Configuration):
         self.session = session
         self.newspaper_conf = newspaper_conf
 
@@ -169,12 +163,13 @@ class CoroCreator:
         source, fake = item
         try:
             scraper = article_factory(link=link, source=source, fake=fake)
-            maybe_article = await scraper.get_data(self.session, self.newspaper_conf)
+            article_wr = await scraper.get_data(self.session, self.newspaper_conf)
 
-            if maybe_article.empty:
-                return Left(maybe_article.on_left(lambda exc: Error.from_exception(exc=exc, url=link, source=source)))
+            if article_wr.empty:
+                err_send = article_wr.on_left(lambda exc: Error.from_exception(exc=exc, url=link, source=source))
+                return Left(err_send)
 
-            return Right(maybe_article.on_right())
+            return Right(article_wr.on_right())
 
         except Exception as e:
             return Left(Error.from_exception(exc=e, url=link, source=source))
@@ -184,21 +179,18 @@ async def dispatch_links(conf: DispatcherSettings, queues: DispatcherQueues):
     backup_manager = conf.make_backup_manager()
 
     async with conf.make_session() as session:
-        coro_creator = CoroCreator(
-            extract_if_function=conf.extract_if,
-            session=session,
-            newspaper_conf=conf.newspaper_conf
-        )
+        coro_creator = CoroCreator(session=session, newspaper_conf=conf.newspaper_conf)
 
         while True:
-            extracted_data = (await queues.receive_links())\
-                .filter(lambda url, item: conf.unpack_extract_if(url, item))
+            links = await queues.receive_links()
+            extracted_data = links.filter(lambda url, item: conf.unpack_extract_if(url, item))
 
             article_list = ArticleListManager(conf.extract_if)
             results = asyncio.gather(*[coro_creator.new_coro(link, item) for link, item in extracted_data.items])
 
             for result in await results:
-                result.map(lambda article: article_list.add(article)).on_right(lambda m: print(m))
+                msg = result.map(lambda article: article_list.add(article))
+                msg.on_right(lambda m: print(m))
                 await result.on_left_awaitable(lambda e: queues.send_error(e))
 
             await queues.send_articles(article_list.get)
