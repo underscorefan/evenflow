@@ -44,7 +44,8 @@ class DispatcherSettings:
             newspaper_conf: Configuration,
             extract_if: Callable[[str, bool], bool],
             backup_path: Optional[str] = None,
-            initial_state: Optional[Dict] = None
+            initial_state: Optional[Dict] = None,
+            timeout: Optional[int] = 60
     ):
         self.connector = connector
         self.headers = headers
@@ -52,6 +53,7 @@ class DispatcherSettings:
         self.extract_if = extract_if
         self.backup_path = backup_path
         self.state = initial_state
+        self.timeout = timeout
 
     def make_session(self) -> ClientSession:
         return ClientSession(connector=self.connector, headers=self.headers)
@@ -155,19 +157,20 @@ class ArticleListManager:
 
 
 class CoroCreator:
-    def __init__(self, session: ClientSession, newspaper_conf: Configuration):
+    def __init__(self, session: ClientSession, newspaper_conf: Configuration, timeout: Optional[int]):
         self.session = session
         self.newspaper_conf = newspaper_conf
+        self.timeout = timeout
 
     async def new_coro(self, link: str, item: Tuple[str, bool]) -> Either[Error, ArticleExtended]:
         source, fake = item
         try:
             scraper = article_factory(link=link, source=source, fake=fake)
-            article_wr = await scraper.get_data(self.session, self.newspaper_conf)
+            article_wr = await scraper.get_data(self.session, self.newspaper_conf, self.timeout)
 
             if article_wr.empty:
-                err_send = article_wr.on_left(lambda exc: Error.from_exception(exc=exc, url=link, source=source))
-                return Left(err_send)
+                err = article_wr.on_left()
+                raise err if err else TimeoutError(f"request for {link} scraped from {source} took too much time")
 
             return Right(article_wr.on_right())
 
@@ -179,7 +182,7 @@ async def dispatch_links(conf: DispatcherSettings, queues: DispatcherQueues):
     backup_manager = conf.make_backup_manager()
 
     async with conf.make_session() as session:
-        coro_creator = CoroCreator(session=session, newspaper_conf=conf.newspaper_conf)
+        coro_creator = CoroCreator(session=session, newspaper_conf=conf.newspaper_conf, timeout=conf.timeout)
 
         while True:
             links = await queues.receive_links()
@@ -191,6 +194,7 @@ async def dispatch_links(conf: DispatcherSettings, queues: DispatcherQueues):
             for result in await results:
                 msg = result.map(lambda article: article_list.add(article))
                 msg.on_right(lambda m: print(m))
+
                 await result.on_left_awaitable(lambda e: queues.send_error(e))
 
             await queues.send_articles(article_list.get)
