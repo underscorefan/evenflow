@@ -155,6 +155,9 @@ class ArticleListManager:
     def get(self) -> List[ArticleExtended]:
         return self.__list
 
+    def free_list(self):
+        self.__list = []
+
 
 class CoroCreator:
     def __init__(self, session: ClientSession, newspaper_conf: Configuration, timeout: Optional[int]):
@@ -178,17 +181,47 @@ class CoroCreator:
             return Left(Error.from_exception(exc=e, url=link, source=source))
 
 
+class ArticleRules:
+    def __init__(self, url_checker: Callable[[str, bool], bool]):
+        self.__url_checker = url_checker
+        self.__custom_checks: List[Callable[[ArticleExtended], bool]] = []
+
+    def add_check(self, check: Callable[[ArticleExtended], bool]):
+        self.__custom_checks.append(check)
+
+    def add_title_check(self, check: Callable[[str], bool]):
+        self.add_check(lambda a: check(a.title))
+
+    def add_text_check(self, check: Callable[[str], bool]):
+        self.add_check(lambda a: check(a.text))
+
+    def add_path_check(self, check: Callable[[str], bool]):
+        self.add_check(lambda a: check(a.path))
+
+    def add_url_check(self, check: Callable[[str], bool]):
+        self.add_check(lambda a: check(a.actual_url))
+
+    def url_is_valid(self, url: str, from_fake: bool) -> bool:
+        return self.__url_checker(url, from_fake)
+
+    def pass_checks(self, a: ArticleExtended) -> bool:
+        for check in self.__custom_checks:
+            if not check(a):
+                return False
+        return True
+
+
 async def dispatch_links(conf: DispatcherSettings, queues: DispatcherQueues):
     backup_manager = conf.make_backup_manager()
 
     async with conf.make_session() as session:
         coro_creator = CoroCreator(session=session, newspaper_conf=conf.newspaper_conf, timeout=conf.timeout)
+        article_list = ArticleListManager(conf.extract_if)
 
         while True:
             links = await queues.receive_links()
             extracted_data = links.filter(lambda url, item: conf.unpack_extract_if(url, item))
 
-            article_list = ArticleListManager(conf.extract_if)
             results = asyncio.gather(*[coro_creator.new_coro(link, item) for link, item in extracted_data.items])
 
             for result in await results:
@@ -199,5 +232,7 @@ async def dispatch_links(conf: DispatcherSettings, queues: DispatcherQueues):
 
             await queues.send_articles(article_list.get)
             await backup_manager.store(extracted_data.backup)
+
+            article_list.free_list()
 
             queues.mark_links()

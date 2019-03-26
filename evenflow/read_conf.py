@@ -1,9 +1,11 @@
 import io
 import json
 
+from functools import partial
 from typing import List, Optional, Dict, ItemsView
 from evenflow.dbops import DatabaseCredentials
 from evenflow.scrapers.feed import FeedScraperState, FeedScraper, SiteFeed
+from evenflow.streams.consumers import ArticleRules
 
 
 def read_json_from(path: str):
@@ -18,6 +20,7 @@ class Conf:
         self.initial_state = self.__load_backup(self.backup_file_path)
         self.sources_json = config_data.get("sources")
         self.pg_cred = config_data.get("pg_cred")
+        self.rules: Dict = config_data.get("rules")
 
     def load_sources(self) -> Optional[List[FeedScraper]]:
         try:
@@ -43,6 +46,37 @@ class Conf:
                 return None
 
         return reader
+
+    def load_rules_into(self, article_rules: ArticleRules) -> ArticleRules:
+        for key, value in self.rules.items():
+            if key == "blacklist":
+                self.__add_sets_to(article_rules, value)
+            elif key == "min_length":
+                self.__add_min_lengths(article_rules, value)
+        return article_rules
+
+    @staticmethod
+    def __add_sets_to(article_rules: ArticleRules, dict_sets: Dict):
+        for key, values in dict_sets.items():
+            if key == "titles":
+                article_rules.add_title_check(lambda title: title not in set(values))
+            elif key == "urls":
+                article_rules.add_url_check(lambda url: url not in set(values))
+
+    @staticmethod
+    def __add_min_lengths(article_rules: ArticleRules, dict_ml: Dict[str, int]):
+        def more_than(min_len: int, ch: str) -> bool:
+            return len(ch) >= min_len
+
+        for key, value in dict_ml.items():
+            mt = partial(more_than, int(value))
+
+            if key == "title":
+                article_rules.add_title_check(lambda t: mt(t))
+            elif key == "text":
+                article_rules.add_text_check(lambda t: mt(t))
+            elif key == "path_loc":
+                article_rules.add_path_check(lambda p: mt(p))
 
     @staticmethod
     def __load_backup(path) -> Optional[Dict[str, Dict]]:

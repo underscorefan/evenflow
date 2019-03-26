@@ -17,14 +17,22 @@ from .storable import Storable
 
 class ArticleExtended(Article, Storable):
 
-    def __init__(self, html: str, url_to_visit: str, scraped_from: str, fake: bool,
-                 conf: Optional[Configuration] = None, do_nlp: bool = True):
-
+    def __init__(
+            self,
+            html: str,
+            url_to_visit: str,
+            scraped_from: str,
+            fake: bool,
+            conf: Optional[Configuration] = None,
+            do_nlp: bool = True
+    ):
         super().__init__(url='', config=conf if conf is not None else Configuration())
         super().set_html(html)
         super().parse()
+
         if do_nlp:
             super().nlp()
+
         self.fake = fake
         self.url_to_visit: str = url_to_visit
         self.scraped_from: str = scraped_from
@@ -48,7 +56,7 @@ class ArticleExtended(Article, Storable):
             'visited_url': self.url_to_visit,
             'scraped_from': self.scraped_from,
             'netloc': functions.strip(self.actual_url),
-            'path': functions.maintain_path(self.actual_url),
+            'path': self.path,
             'authors': check_strings(self.authors),
             'images': check_strings(self.images),
             'videos': check_strings(self.movies),
@@ -60,6 +68,10 @@ class ArticleExtended(Article, Storable):
             'summary': value_or_none(self.summary),
             'fake': self.fake
         }
+
+    @property
+    def path(self):
+        return functions.maintain_path(self.actual_url)
 
     @staticmethod
     def columns() -> List[str]:

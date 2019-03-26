@@ -76,7 +76,6 @@ async def asy_main(loop: asyncio.events, conf: Conf) -> float:
     for consumer in consumer_jobs:
         consumer.cancel()
 
-    print("about to close pool")
     await pg_pool.close()
     print("pool closed")
 
