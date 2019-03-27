@@ -57,6 +57,19 @@ def test_conf_rules():
     assert ar.pass_checks(fake_extended(not_pass_it)) is False
 
 
+def test_conf_check_feed():
+    c = base_conf('./data/fake_conf_condition.json')
+    sources = c.load_sources()
+    found = False
+    for source in sources:
+        if source.get_name() == "tof":
+            found = True
+            assert source.condition.value_container == ".try"
+            assert source.condition.satisfied("megafAke") is True
+            assert source.condition.satisfied("megafA") is False
+    assert found is True
+
+
 def fake_extended(url: str) -> ArticleExtended:
     a = Article(url)
     a.download()
