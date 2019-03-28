@@ -3,33 +3,52 @@ import time
 import traceback
 import uvloop
 
+from functools import partial
 from aiohttp import ClientSession
-from typing import Tuple
 from evenflow import Conf
 from evenflow.streams import consumers, producers
-from evenflow.urlman import UrlSet
+from evenflow.urlman import LabelledSources
 from evenflow.dbops import sources as db_sources, DatabaseCredentials
 
 
-async def make_url_sets(cred: DatabaseCredentials) -> Tuple[UrlSet, UrlSet]:
-    records = await cred.do_with_connection(lambda conn: db_sources.select_sources(conn))
-    reliable, unreliable = UrlSet(), UrlSet()
-    true_labels, fake_labels = {'very high', 'high'}, {'mixed', 'low', 'insane stuff', 'satire', 'very low'}
-    for record in records:
+async def make_url_dict(cred: DatabaseCredentials) -> LabelledSources:
+    records = await cred.do_with_connection(lambda c: db_sources.select_sources(c))
+    labelled_sources = LabelledSources(False)
+    true_labels, fake_labels = {'very high', 'high'}, {'low', 'insane stuff', 'satire', 'very low'}
 
-        if record['factual_reporting'] in true_labels:
-            reliable.add(record['url'], netloc=False)
+    for record in records:
+        label, url = record['factual_reporting'], record["url"]
+
+        if label == "mixed":
+            labelled_sources[url] = label
             continue
 
-        if record['factual_reporting'] in fake_labels:
-            unreliable.add(record['url'], netloc=False)
+        if label in true_labels:
+            labelled_sources[url] = "high"
+            continue
 
-    unreliable.add_multiple(
-        urls=[f"archive.{dom}" for dom in ["is", "fo", "today"]] + ["web.archive.org"],
-        netloc=False
-    )
+        if label in fake_labels:
+            labelled_sources[url] = "low"
 
-    return reliable, unreliable
+    for arch in [f"archive.{dom}" for dom in ["is", "fo", "today"]] + ["web.archive.org"]:
+        labelled_sources[arch] = "archive"
+
+    return labelled_sources.strip(True)
+
+
+def add_url(labelled_sources: LabelledSources, url: str, from_fake: bool, from_archive: bool) -> bool:
+    label = labelled_sources[url]
+
+    if label == "high":
+        return not from_fake
+
+    if label == "low":
+        return from_fake
+
+    if label == "mixed":
+        return from_fake and from_archive
+
+    return label == "archive" and from_fake
 
 
 async def asy_main(loop: asyncio.events, conf: Conf) -> float:
@@ -46,11 +65,13 @@ async def asy_main(loop: asyncio.events, conf: Conf) -> float:
     db_cred = conf.setupdb()
 
     pg_pool = await db_cred.make_pool()
-    reliable, unreliable = await make_url_sets(db_cred)
+
+    labelled_sources = await make_url_dict(db_cred)
+    add_url_partial = partial(add_url, labelled_sources)
 
     article_rules = conf.load_rules_into(
         consumers.ArticleRules(
-            lambda url, from_fake: unreliable.contains(url) if from_fake else reliable.contains(url)
+            lambda url, from_fake, archived: add_url_partial(url, from_fake, archived)
         )
     )
 

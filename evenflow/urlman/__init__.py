@@ -1,2 +1,2 @@
-from .url_set import UrlSet
+from .labelled_sources import LabelledSources
 from .functions import *

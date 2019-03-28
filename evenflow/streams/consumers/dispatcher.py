@@ -37,7 +37,7 @@ class BackupManager:
 
 
 class ArticleRules:
-    def __init__(self, url_checker: Callable[[str, bool], bool]):
+    def __init__(self, url_checker: Callable[[str, bool, bool], bool]):
         self.__url_checker = url_checker
         self.__custom_checks: List[Callable[[ArticleExtended], bool]] = []
 
@@ -56,8 +56,8 @@ class ArticleRules:
     def add_url_check(self, check: Callable[[str], bool]):
         self.add_check(lambda a: check(a.actual_url))
 
-    def url_is_valid(self, url: str, from_fake: bool) -> bool:
-        return self.__url_checker(url, from_fake)
+    def url_is_valid(self, url: str, from_fake: bool, archived: bool) -> bool:
+        return self.__url_checker(url, from_fake, archived)
 
     def pass_checks(self, a: ArticleExtended) -> bool:
         for check in self.__custom_checks:
@@ -93,7 +93,7 @@ class DispatcherSettings:
 
     def unpack_check(self, url: str, item: Tuple[str, bool]):
         _, from_fake = item
-        return self.rules.url_is_valid(url, from_fake)
+        return self.rules.url_is_valid(url, from_fake, False)
 
 
 class DefaultDispatcher(DispatcherSettings):
@@ -175,7 +175,7 @@ class ArticleListManager:
         if not self.__duplicate_checker.is_valid(a):
             return None
 
-        if a.actual_url != a.url_to_visit and not self.rules.url_is_valid(a.actual_url, a.fake):
+        if a.archived and not self.rules.url_is_valid(a.actual_url, a.fake, a.archived):
             return None
 
         if not self.rules.pass_checks(a):

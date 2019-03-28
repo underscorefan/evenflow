@@ -70,6 +70,10 @@ class ArticleExtended(Article, Storable):
         }
 
     @property
+    def archived(self) -> bool:
+        return self.actual_url != self.url_to_visit
+
+    @property
     def path(self):
         return functions.maintain_path(self.actual_url)
 
