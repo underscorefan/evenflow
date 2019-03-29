@@ -22,10 +22,10 @@ async def store_articles(pool: asyncpg.pool.Pool, storage_queue: asyncio.Queue, 
                         Error.from_exception(
                             exc=e,
                             url=article.url_to_visit,
-                            source=article.scraped_from
+                            source=article.scraped_from,
+                            fake=article.fake
                         )
                     )
-                    # Error(msg=exc.get_name(e), url=article.url_to_visit, source=article.scraped_from)
 
         storage_queue.task_done()
 

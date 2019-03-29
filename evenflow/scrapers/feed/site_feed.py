@@ -154,7 +154,7 @@ class SiteFeed(FeedScraper):
                 lambda page: UrlExtractor(page).make_url_container(self.sel.links, self.condition)
             )
             maybe_urls = maybe_page.map(lambda container: container.to_dict([(url, self.fake_news)]))
-            arts.add_page_hrefs(url, maybe_urls)
+            arts.add_page_hrefs(url, self.fake_news, maybe_urls)
         return arts
 
     async def __extract_feed(self, session: ClientSession) -> Either[Exception, UrlContainer]:

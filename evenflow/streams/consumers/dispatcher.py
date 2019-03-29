@@ -119,9 +119,6 @@ class DispatcherQueues:
         self.storage = storage
         self.error = error
 
-    async def create_and_send_error(self, message: str, link: str, source: str):
-        await self.error.put(Error(msg=message, url=link, source=source))
-
     async def send_error(self, error: Error):
         await self.error.put(error)
 
@@ -212,7 +209,7 @@ class CoroCreator:
             return Right(article_wr.on_right())
 
         except Exception as e:
-            return Left(Error.from_exception(exc=e, url=link, source=source))
+            return Left(Error.from_exception(exc=e, url=link, source=source, fake=fake))
 
 
 async def dispatch_links(conf: DispatcherSettings, queues: DispatcherQueues):

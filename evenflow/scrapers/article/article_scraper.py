@@ -10,7 +10,7 @@ from evenflow.streams.messages.article_extended import ArticleExtended
 from evenflow.urlman import functions
 
 
-class ActualURLNotFound(Exception):
+class ArchivedURLNotFound(Exception):
     """raised when original url is not found in archive.* websites"""
     pass
 
@@ -45,8 +45,8 @@ class Archive(DefaultArticleScraper):
     def title_extraction(article: ArticleExtended) -> ArticleExtended:
         url = article.soup.select_one("#HEADER > table input")["value"]
         if url:
-            return article.set_actual_url(url)
-        raise ActualURLNotFound(f"url not found for {article.url_to_visit}, scraped_from: {article.scraped_from}")
+            return article.set_actual_url(url).update_date()
+        raise ArchivedURLNotFound(f"url not found for {article.url_to_visit}, scraped_from: {article.scraped_from}")
 
     async def get_data(self, session: Sess, conf: NConf, timeout: Optional[int]) -> Either[Exception, ArticleExtended]:
         maybe_article = await super().get_data(session, conf, timeout)
@@ -61,7 +61,7 @@ class WebArchive(DefaultArticleScraper):
         maybe_url = re.findall("(https?://[^\\s]+)", functions.maintain_path(self.article_link))
 
         if len(maybe_url) > 0:
-            return (await super().get_data(session, conf, timeout))\
-                .map(lambda a: a.set_actual_url(maybe_url[0]))
+            maybe_article = await super().get_data(session, conf, timeout)
+            return maybe_article.map(lambda a: a.set_actual_url(maybe_url[0]).update_date())
 
-        return Left(ActualURLNotFound(f"encoded URL not found in {self.article_link}"))
+        return Left(ArchivedURLNotFound(f"encoded URL not found in {self.article_link}"))

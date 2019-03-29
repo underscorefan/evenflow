@@ -10,6 +10,8 @@ from evenflow.streams import consumers, producers
 from evenflow.urlman import LabelledSources
 from evenflow.dbops import sources as db_sources, DatabaseCredentials
 
+HIGH, LOW, MIXED, ARCHIVE = "high", "low", "mixed", "archive"
+
 
 async def make_url_dict(cred: DatabaseCredentials) -> LabelledSources:
     records = await cred.do_with_connection(lambda c: db_sources.select_sources(c))
@@ -19,19 +21,19 @@ async def make_url_dict(cred: DatabaseCredentials) -> LabelledSources:
     for record in records:
         label, url = record['factual_reporting'], record["url"]
 
-        if label == "mixed":
-            labelled_sources[url] = label
+        if label == MIXED:
+            labelled_sources[url] = MIXED
             continue
 
         if label in true_labels:
-            labelled_sources[url] = "high"
+            labelled_sources[url] = HIGH
             continue
 
         if label in fake_labels:
-            labelled_sources[url] = "low"
+            labelled_sources[url] = LOW
 
     for arch in [f"archive.{dom}" for dom in ["is", "fo", "today"]] + ["web.archive.org"]:
-        labelled_sources[arch] = "archive"
+        labelled_sources[arch] = ARCHIVE
 
     return labelled_sources.strip(True)
 
@@ -39,16 +41,16 @@ async def make_url_dict(cred: DatabaseCredentials) -> LabelledSources:
 def add_url(labelled_sources: LabelledSources, url: str, from_fake: bool, from_archive: bool) -> bool:
     label = labelled_sources[url]
 
-    if label == "high":
+    if label == HIGH:
         return not from_fake
 
-    if label == "low":
+    if label == LOW:
         return from_fake
 
-    if label == "mixed":
+    if label == MIXED:
         return from_fake and from_archive
 
-    return label == "archive" and from_fake
+    return label == ARCHIVE and from_fake and not from_archive
 
 
 async def asy_main(loop: asyncio.events, conf: Conf) -> float:

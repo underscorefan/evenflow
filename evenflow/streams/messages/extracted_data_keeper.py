@@ -11,9 +11,9 @@ class ExtractedDataKeeper:
         self.__errors: List[Error] = []
         self.__backup: Dict[str, Dict] = {}
 
-    def add_page_hrefs(self, scraped_from: str, maybe_hrefs: Either[Exception, Dict[str, bool]]):
+    def add_page_hrefs(self, scraped_from: str, fake: bool, maybe_hrefs: Either[Exception, Dict[str, bool]]):
         if maybe_hrefs.empty:
-            add_error = maybe_hrefs.on_left(lambda e: Error.from_exception(exc=e, url=scraped_from))
+            add_error = maybe_hrefs.on_left(lambda e: Error.from_exception(exc=e, url=scraped_from, fake=fake))
             self.__errors.append(add_error)
             return
 

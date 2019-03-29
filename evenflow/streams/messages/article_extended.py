@@ -2,6 +2,7 @@ from typing import Optional, Dict, List
 from bs4 import BeautifulSoup
 from newspaper import Article
 from newspaper.configuration import Configuration
+from datetime import datetime
 from evenflow import utreq
 from evenflow.urlman import functions
 
@@ -39,6 +40,7 @@ class ArticleExtended(Article, Storable):
         self.soup: BeautifulSoup = utreq.soup_from_response(html)
         self.actual_url: str = url_to_visit
         self.__text_length: Optional[int] = None
+        self.scraped_date = datetime.now()
 
     def correct_title(self) -> 'ArticleExtended':
         if self.title.strip().endswith("…"):
@@ -66,7 +68,8 @@ class ArticleExtended(Article, Storable):
             'publish_date': self.publish_date,
             'generator': value_or_none(self.meta_data['generator']),
             'summary': value_or_none(self.summary),
-            'fake': self.fake
+            'fake': self.fake,
+            'scraped_date': self.scraped_date
         }
 
     @property
@@ -80,6 +83,10 @@ class ArticleExtended(Article, Storable):
     @staticmethod
     def columns() -> List[str]:
         return article_sql_fields()
+
+    def update_date(self) -> 'ArticleExtended':
+        self.scraped_date = datetime.now()
+        return self
 
     def set_actual_url(self, url: str) -> 'ArticleExtended':
         self.actual_url = url
