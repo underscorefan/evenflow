@@ -1,1 +1,1 @@
-from .collect_links import collect_links
+from .collect_links_html import collect_links_html

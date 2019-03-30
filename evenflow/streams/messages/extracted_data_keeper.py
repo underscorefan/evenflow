@@ -11,13 +11,21 @@ class ExtractedDataKeeper:
         self.__errors: List[Error] = []
         self.__backup: Dict[str, Dict] = {}
 
-    def add_page_hrefs(self, scraped_from: str, fake: bool, maybe_hrefs: Either[Exception, Dict[str, bool]]):
+    def add_page_hrefs(
+            self,
+            scraped_from: str,
+            fake: bool,
+            maybe_hrefs: Either[Exception, Dict[str, Tuple[str, bool]]]
+    ):
         if maybe_hrefs.empty:
             add_error = maybe_hrefs.on_left(lambda e: Error.from_exception(exc=e, url=scraped_from, fake=fake))
             self.__errors.append(add_error)
             return
 
         self.append_links(maybe_hrefs.on_right())
+
+    def append_link(self, url: str, source: str, mark_as_fake: bool):
+        self.__links_to_send[url] = (source, mark_as_fake)
 
     def append_links(self, additional_links: Dict[str, Tuple[str, bool]]):
         self.__links_to_send = {**self.__links_to_send, **additional_links}

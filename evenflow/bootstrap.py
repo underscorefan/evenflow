@@ -96,7 +96,7 @@ async def asy_main(loop: asyncio.events, conf: Conf) -> float:
     start_time = time.perf_counter()
 
     async with ClientSession() as session:
-        await producers.collect_links(send_channel=q[s], to_scrape=feeds, session=session)
+        await producers.collect_links_html(send_channel=q[s], to_scrape=feeds, session=session)
         scrape_time = time.perf_counter() - start_time
 
     for k in q:

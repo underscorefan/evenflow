@@ -56,7 +56,7 @@ class IterationManager:
         return self.__feed_scrapers
 
 
-async def collect_links(send_channel: asyncio.Queue, to_scrape: List[FeedScraper], session: ClientSession):
+async def collect_links_html(send_channel: asyncio.Queue, to_scrape: List[FeedScraper], session: ClientSession):
     iteration_manager = IterationManager(to_scrape)
 
     while iteration_manager.has_feed_scrapers():
