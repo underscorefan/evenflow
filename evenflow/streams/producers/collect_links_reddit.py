@@ -36,5 +36,5 @@ async def collect_links_reddit(rsm: RedditSettingsManager, send_channel: Queue):
             if submission.url != submission.permalink:
                 edk.append_link(submission.url, subreddit_domain, rsm.sub_is_fake(subreddit))
                 tot += 1
-            bkp = {subreddit_domain: {"is_over": True, "data": {"articles_scraped": tot}}}
+            bkp = {subreddit: {"is_over": True, "data": {"articles_scraped": tot}}}
             await send_channel.put(edk.set_backup(bkp))
