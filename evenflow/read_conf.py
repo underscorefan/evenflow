@@ -59,6 +59,9 @@ class Conf:
         )
 
     def __subreddit_over(self, subreddit: str) -> bool:
+        if self.initial_state is None:
+            return False
+
         subreddit_state = self.initial_state.get(subreddit)
         if subreddit_state is not None:
             return CollectorState.pack(subreddit, subreddit_state).is_over

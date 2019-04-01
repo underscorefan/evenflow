@@ -1,7 +1,6 @@
 from typing import Dict, Tuple, ItemsView, List, Callable, Optional
 
 from dirtyfunc import Either
-
 from evenflow.streams.messages import Error, CollectorState
 
 
