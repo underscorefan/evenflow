@@ -1,5 +1,5 @@
 from praw import Reddit
-from asyncio import Queue, events
+from asyncio import Queue
 from typing import Dict, Optional
 from evenflow.streams.messages import DataKeeper, CollectorState
 
