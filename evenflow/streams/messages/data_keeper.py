@@ -1,15 +1,19 @@
-from typing import Dict, Tuple, ItemsView, List, Callable
+from typing import Dict, Tuple, ItemsView, List, Callable, Optional
 
 from dirtyfunc import Either
 
-from evenflow.streams.messages import Error
+from evenflow.streams.messages import Error, CollectorState
 
 
-class ExtractedDataKeeper:
-    def __init__(self):
-        self.__links_to_send: Dict[str, Tuple[str, bool]] = {}
+class DataKeeper:
+    def __init__(
+            self,
+            initial_state: Optional[Dict[str, Dict]] = None,
+            initial_links: Optional[Dict[str, Tuple[str, bool]]] = None
+    ):
+        self.__links_to_send: Dict[str, Tuple[str, bool]] = initial_links if initial_links is not None else {}
         self.__errors: List[Error] = []
-        self.__backup: Dict[str, Dict] = {}
+        self.__state: Dict[str, Dict] = initial_state if initial_state is not None else {}
 
     def add_page_hrefs(
             self,
@@ -33,23 +37,27 @@ class ExtractedDataKeeper:
     def append_errors(self, additional_errors: List[Error]):
         self.__errors = self.__errors + additional_errors
 
-    def filter(self, func: Callable[[str, Tuple[str, bool]], bool]) -> 'ExtractedDataKeeper':
-        ret = ExtractedDataKeeper()
+    def filter(self, func: Callable[[str, Tuple[str, bool]], bool]) -> 'DataKeeper':
+        ret = DataKeeper(initial_state=self.state)
         ret.append_links({k: v for k, v in self.__links_to_send.items() if func(k, v)})
         ret.append_errors(self.errors)
-        ret.set_backup(self.backup)
         return ret
 
-    def set_backup(self, bkp: Dict[str, Dict]) -> 'ExtractedDataKeeper':
-        self.__backup = bkp
+    def append_state(self, state: CollectorState) -> 'DataKeeper':
+        name, data = state.unpack()
+        self.__state[name] = data
         return self
 
-    def __add__(self, other: 'ExtractedDataKeeper') -> 'ExtractedDataKeeper':
-        ret = ExtractedDataKeeper()
-        ret.append_links(self.links_to_send)
+    def append_states(self, states: List[CollectorState]) -> 'DataKeeper':
+        for state in states:
+            name, data = state.unpack()
+            self.__state[name] = data
+        return self
+
+    def __add__(self, other: 'DataKeeper') -> 'DataKeeper':
+        ret = DataKeeper(initial_state={**self.state, **other.state}, initial_links=self.links_to_send)
         ret.append_links(other.links_to_send)
         ret.append_errors(other.errors + self.errors)
-        ret.set_backup({**self.backup, **other.backup})
         return ret
 
     @property
@@ -65,5 +73,5 @@ class ExtractedDataKeeper:
         return self.__errors
 
     @property
-    def backup(self) -> Dict[str, Dict]:
-        return self.__backup
+    def state(self) -> Dict[str, Dict]:
+        return self.__state

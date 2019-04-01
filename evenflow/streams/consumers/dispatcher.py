@@ -9,7 +9,7 @@ from newspaper.configuration import Configuration
 from dirtyfunc import Either, Left, Right
 
 from evenflow.scrapers.article import article_factory
-from evenflow.streams.messages import ArticleExtended, Error, ExtractedDataKeeper
+from evenflow.streams.messages import ArticleExtended, Error, DataKeeper
 
 LIMIT_PER_HOST = 2
 
@@ -126,7 +126,7 @@ class DispatcherQueues:
         print(f"sending {len(articles)}")
         await self.storage.put(articles)
 
-    async def receive_links(self) -> ExtractedDataKeeper:
+    async def receive_links(self) -> DataKeeper:
         return await self.links.get()
 
     def mark_links(self):
@@ -232,7 +232,7 @@ async def dispatch_links(conf: DispatcherSettings, queues: DispatcherQueues):
                 await result.on_left_awaitable(lambda e: queues.send_error(e))
 
             await queues.send_articles(article_list.get)
-            await backup_manager.store(extracted_data.backup)
+            await backup_manager.store(extracted_data.state)
 
             article_list.free_resources()
 

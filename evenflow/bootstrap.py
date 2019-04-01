@@ -55,8 +55,14 @@ def add_url(labelled_sources: LabelledSources, url: str, from_fake: bool, from_a
 
 async def asy_main(loop: asyncio.events, conf: Conf) -> float:
     feeds = conf.load_sources()
+    maybe_rs = conf.load_reddit_settings()
 
-    if not feeds or len(feeds) == 0:
+    if maybe_rs.empty:
+        print(maybe_rs.on_left())
+        return 0.0
+    reddit_settings: producers.RedditSettings = maybe_rs.on_right()
+
+    if (not feeds or len(feeds) == 0) and len(reddit_settings.subreddits) == 0:
         print("no sources to begin with")
         return 0.0
 
@@ -96,7 +102,10 @@ async def asy_main(loop: asyncio.events, conf: Conf) -> float:
     start_time = time.perf_counter()
 
     async with ClientSession() as session:
-        await producers.collect_links_html(send_channel=q[s], to_scrape=feeds, session=session)
+        await asyncio.gather(*[
+            producers.collect_links_html(send_channel=q[s], to_scrape=feeds, session=session),
+            producers.collect_links_reddit(send_channel=q[s], rsm=reddit_settings)
+        ])
         scrape_time = time.perf_counter() - start_time
 
     for k in q:

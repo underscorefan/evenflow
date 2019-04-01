@@ -1,12 +1,10 @@
 from praw import Reddit
 from asyncio import Queue, events
-from concurrent.futures import Executor
 from typing import Dict, Optional
-from functools import partial
-from evenflow.streams.messages import ExtractedDataKeeper
+from evenflow.streams.messages import DataKeeper, CollectorState
 
 
-class RedditSettingsManager:
+class RedditSettings:
     def __init__(self, subreddits: Dict[str, bool], num_posts: int, instance: Reddit):
         self.subreddits = subreddits
         self.num_posts = num_posts
@@ -19,22 +17,23 @@ class RedditSettingsManager:
         return self.subreddits.get(sub)
 
 
-async def reddit_in_executor(loop: events, executor: Optional[Executor], rsm: RedditSettingsManager, send: Queue):
-    return await loop.run_in_executor(executor, partial(collect_links_reddit, rsm, send))
+# async def reddit_in_executor(loop: events, executor: Optional[Executor], rsm: RedditSettings, send: Queue):
+#   return await loop.run_in_executor(executor, partial(collect_links_reddit, rsm, send))
 
 
 def add_domain(subreddit: str) -> str:
     return f"https://www.reddit.com/r/{subreddit}/"
 
 
-async def collect_links_reddit(rsm: RedditSettingsManager, send_channel: Queue):
+async def collect_links_reddit(rsm: RedditSettings, send_channel: Queue):
     for subreddit in rsm.subreddits:
-        edk = ExtractedDataKeeper()
+        edk = DataKeeper()
+        tot = 0
         for submission in rsm.sub(subreddit).top(time_filter='year', limit=rsm.num_posts):
             subreddit_domain = add_domain(subreddit)
-            tot = 0
             if submission.url != submission.permalink:
                 edk.append_link(submission.url, subreddit_domain, rsm.sub_is_fake(subreddit))
                 tot += 1
-            bkp = {subreddit: {"is_over": True, "data": {"articles_scraped": tot}}}
-            await send_channel.put(edk.set_backup(bkp))
+
+        state = CollectorState(name=subreddit, is_over=True, data={'posts': tot})
+        await send_channel.put(edk.append_state(state))

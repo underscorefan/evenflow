@@ -3,14 +3,14 @@ import asyncio
 from typing import Dict, Tuple, List
 from aiohttp import ClientSession
 from dirtyfunc import Option
-from evenflow.streams.messages import Error, ExtractedDataKeeper
-from evenflow.scrapers.feed import FeedScraper, FeedScraperState, FeedResult
+from evenflow.streams.messages import Error, DataKeeper, CollectorState
+from evenflow.scrapers.feed import FeedScraper, FeedResult
 
 
 class Sender:
     def __init__(self):
-        self.__articles: ExtractedDataKeeper = ExtractedDataKeeper()
-        self.__backup: Dict[str, Dict] = dict()
+        self.__articles: DataKeeper = DataKeeper()
+        self.__backup: Dict[str, CollectorState] = {}
         self.__feed_scrapers: List[FeedScraper] = []
 
     def add_feed_scraper(self, reader: Option[FeedScraper]):
@@ -20,25 +20,24 @@ class Sender:
     def get_feed_scrapers(self) -> List[FeedScraper]:
         return self.__feed_scrapers
 
-    def merge_containers(self, articles: ExtractedDataKeeper):
+    def merge_containers(self, articles: DataKeeper):
         self.__articles = self.__articles + articles
 
-    def add_to_backup(self, s: FeedScraperState):
-        key, value = s.unpack()
-        self.__backup[key] = value
+    def add_to_backup(self, s: CollectorState):
+        self.__backup[s.name] = s
 
     def get_links(self) -> Dict[str, Tuple[str, bool]]:
         return self.__articles.links_to_send
 
     @property
-    def container(self) -> ExtractedDataKeeper:
-        return self.__articles.set_backup(self.__backup)
+    def container(self) -> DataKeeper:
+        return self.__articles.append_states([v for v in self.__backup.values()])
 
     @property
     def errors(self) -> List[Error]:
         return self.__articles.errors
 
-    def get_backup(self) -> Dict[str, Dict]:
+    def get_backup(self) -> Dict[str, CollectorState]:
         return self.__backup
 
 

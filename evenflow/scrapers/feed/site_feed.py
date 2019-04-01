@@ -4,9 +4,9 @@ from bs4 import BeautifulSoup
 from dirtyfunc import Option, Either, Left, Right, Nothing
 
 from evenflow import utreq
-from evenflow.streams.messages import ExtractedDataKeeper
+from evenflow.streams.messages import DataKeeper
 
-from .feed_scraper_state import FeedScraperState
+from evenflow.streams.messages.collector_state import CollectorState
 from .feed_scraper import FeedResult, FeedScraper
 
 URL = 'url'
@@ -101,7 +101,7 @@ class SiteFeed(FeedScraper):
     def get_name(self) -> str:
         return self.name
 
-    def recover_state(self, state: FeedScraperState) -> bool:
+    def recover_state(self, state: CollectorState) -> bool:
         if state.is_over:
             return False
         self.url = state.data[URL]
@@ -123,8 +123,8 @@ class SiteFeed(FeedScraper):
         )
         return Right(defined)
 
-    def to_state(self, over: bool = False) -> FeedScraperState:
-        return FeedScraperState(
+    def to_state(self, over: bool = False) -> CollectorState:
+        return CollectorState(
             name=self.name,
             is_over=over,
             data={
@@ -146,8 +146,8 @@ class SiteFeed(FeedScraper):
         )
         return Option(defined)
 
-    async def __extract_links(self, session: ClientSession, *urls: str) -> ExtractedDataKeeper:
-        arts = ExtractedDataKeeper()
+    async def __extract_links(self, session: ClientSession, *urls: str) -> DataKeeper:
+        arts = DataKeeper()
         for url in urls:
             maybe_resp = await utreq.new_soup(url, session)
             maybe_page = maybe_resp.map(

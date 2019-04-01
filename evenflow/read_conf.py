@@ -1,11 +1,15 @@
 import io
 import json
+import praw
 
 from functools import partial
 from typing import List, Optional, Dict, ItemsView
+from dirtyfunc import Either
 from evenflow.dbops import DatabaseCredentials
-from evenflow.scrapers.feed import FeedScraperState, FeedScraper, SiteFeed
+from evenflow.scrapers.feed import FeedScraper, SiteFeed
+from evenflow.streams.messages import CollectorState
 from evenflow.streams.consumers import ArticleRules
+from evenflow.streams.producers import RedditSettings
 
 
 def read_json_from(path: str):
@@ -21,18 +25,48 @@ class Conf:
         self.sources_json = config_data.get("sources")
         self.pg_cred = config_data.get("pg_cred")
         self.rules: Dict = config_data.get("rules")
+        self.reddit: Dict = config_data.get("reddit")
 
     def load_sources(self) -> Optional[List[FeedScraper]]:
         try:
             return list(
                 filter(
                     lambda x: x,
-                    [self.__new_reader(s.items()) for s in self.sources_json if s["type"] == "html"]
+                    [self.__new_reader(s.items()) for s in self.sources_json]
                 )
             )
 
         except KeyError:
             return None
+
+    def __load_reddit(self) -> RedditSettings:
+        subs = self.reddit.get("subs")
+        if subs is None:
+            raise ValueError("subs is not defined")
+
+        num_posts = int(self.reddit.get("num_posts"))
+        if num_posts is None:
+            raise ValueError("num_posts is not defined")
+
+        credentials = self.reddit.get("credentials")
+        if credentials is None:
+            raise ValueError("credentials is not defined")
+
+        return RedditSettings(
+            subreddits={k: v for k, v in subs.items() if not self.__subreddit_over(k)},
+            num_posts=num_posts,
+            instance=praw.Reddit(**credentials)
+        )
+
+    def __subreddit_over(self, subreddit: str) -> bool:
+        subreddit_state = self.initial_state.get(subreddit)
+        if subreddit_state is not None:
+            return CollectorState.pack(subreddit, subreddit_state).is_over
+
+        return False
+
+    def load_reddit_settings(self) -> Either[Exception, RedditSettings]:
+        return Either.attempt(self.__load_reddit)
 
     def __new_reader(self, json_data: ItemsView) -> Optional[FeedScraper]:
         reader = SiteFeed(**{k: v for k, v in json_data if k != "type"})
@@ -41,7 +75,7 @@ class Conf:
 
         old_state_obj = self.initial_state.get(reader.get_name())
         if old_state_obj:
-            recovered = reader.recover_state(FeedScraperState.pack(reader.get_name(), old_state_obj))
+            recovered = reader.recover_state(CollectorState.pack(reader.get_name(), old_state_obj))
             if not recovered:
                 return None
 
@@ -79,7 +113,7 @@ class Conf:
                 article_rules.add_path_check(lambda p: mt(p))
 
     @staticmethod
-    def __load_backup(path) -> Optional[Dict[str, Dict]]:
+    def __load_backup(path: str) -> Optional[Dict[str, Dict]]:
         try:
             return read_json_from(path)
         except FileNotFoundError:

@@ -1,4 +1,5 @@
 from .storable import Storable
 from .error import Error
-from .extracted_data_keeper import ExtractedDataKeeper
+from .collector_state import CollectorState
+from .data_keeper import DataKeeper
 from .article_extended import ArticleExtended
