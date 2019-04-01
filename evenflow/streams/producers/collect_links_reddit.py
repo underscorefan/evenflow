@@ -17,10 +17,6 @@ class RedditSettings:
         return self.subreddits.get(sub)
 
 
-# async def reddit_in_executor(loop: events, executor: Optional[Executor], rsm: RedditSettings, send: Queue):
-#   return await loop.run_in_executor(executor, partial(collect_links_reddit, rsm, send))
-
-
 def add_domain(subreddit: str) -> str:
     return f"https://www.reddit.com/r/{subreddit}/"
 
