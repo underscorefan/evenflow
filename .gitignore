@@ -3,3 +3,4 @@ data
 notes
 tests/.pytest_cache
 evenflow/t_timeout.py
+evenflow/t_errors.py

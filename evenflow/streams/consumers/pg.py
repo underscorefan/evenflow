@@ -41,3 +41,15 @@ async def store_errors(pool: asyncpg.pool.Pool, error_queue: asyncio.Queue):
             except Exception as e:
                 print(f'errors:\t{e}')
         error_queue.task_done()
+
+
+async def delete_errors(pool: asyncpg.pool.Pool, delete: asyncio.Queue):
+    while True:
+        url = await delete.get()
+        print(f'deleting {url} from errors')
+        async with pool.acquire() as connection:
+            try:
+                await connection.execute("DELETE FROM error WHERE url=$1", url)
+            except Exception as e:
+                print(f'errors:\t{e}')
+        delete.task_done()

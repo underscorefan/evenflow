@@ -3,14 +3,25 @@ import time
 import traceback
 import uvloop
 
+from dirtyfunc import Either
+from typing import Optional, List
 from functools import partial
 from aiohttp import ClientSession
 from evenflow import Conf
 from evenflow.streams import consumers, producers
 from evenflow.urlman import LabelledSources
-from evenflow.dbops import sources as db_sources, DatabaseCredentials
+from evenflow.dbops import select as db_sources, DatabaseCredentials
+from evenflow.scrapers.feed import FeedScraper
 
 HIGH, LOW, MIXED, ARCHIVE = "high", "low", "mixed", "archive"
+
+
+class Bootstrap:
+    def __init__(self, loop: asyncio.events, c: Conf):
+        self.loop = loop
+        self.db_credentials: DatabaseCredentials = c.setupdb()
+        self.feeds: Optional[List[FeedScraper]] = c.load_sources()
+        self.maybe_reddit_settings: Either[Exception, producers.RedditSettings] = c.load_reddit_settings()
 
 
 async def make_url_dict(cred: DatabaseCredentials) -> LabelledSources:
@@ -102,10 +113,8 @@ async def asy_main(loop: asyncio.events, conf: Conf) -> float:
     start_time = time.perf_counter()
 
     async with ClientSession() as session:
-        await asyncio.gather(*[
-            producers.collect_links_html(send_channel=q[s], to_scrape=feeds, session=session),
-            producers.collect_links_reddit(send_channel=q[s], rsm=reddit_settings)
-        ])
+        await producers.collect_links_html(send_channel=q[s], to_scrape=feeds, session=session)
+        await producers.collect_links_reddit(send_channel=q[s], rsm=reddit_settings)
         scrape_time = time.perf_counter() - start_time
 
     for k in q:

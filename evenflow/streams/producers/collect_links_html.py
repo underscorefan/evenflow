@@ -61,10 +61,9 @@ async def collect_links_html(send_channel: asyncio.Queue, to_scrape: List[FeedSc
     while iteration_manager.has_feed_scrapers():
         feed_scrapers = iteration_manager.get_feed_scrapers()
         print([feed_scraper.get_name() for feed_scraper in feed_scrapers])
-        coroutines = [feed_scraper.fetch_links(session) for feed_scraper in feed_scrapers]
         sender = Sender()
 
-        for res in await asyncio.gather(*coroutines):
+        for res in await asyncio.gather(*[feed_scraper.fetch_links(session) for feed_scraper in feed_scrapers]):
             if res.empty:
                 print(res.on_left())
                 continue

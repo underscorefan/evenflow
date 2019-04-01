@@ -223,9 +223,9 @@ async def dispatch_links(conf: DispatcherSettings, queues: DispatcherQueues):
             links = await queues.receive_links()
             extracted_data = links.filter(lambda url, item: conf.unpack_check(url, item))
 
-            results = asyncio.gather(*[coro_creator.new_coro(link, item) for link, item in extracted_data.items])
-
-            for result in await results:
+            for result in await asyncio.gather(
+                    *[coro_creator.new_coro(link, item) for link, item in extracted_data.items]
+            ):
                 msg = result.map(lambda article: article_list.add(article))
                 msg.on_right(lambda m: print(m))
 
