@@ -18,7 +18,7 @@ def test_conf_sources():
     expected = 2
 
     assert sources is not None
-    assert len([s.get_name() for s in sources if s.get_name() in name_set]) == expected
+    assert len([s.get_name() for s in sources.on_right() if s.get_name() in name_set]) == expected
 
 
 def test_conf_backup():
@@ -31,7 +31,7 @@ def test_conf_backup():
 
     total, expected_total = 0, 1
 
-    for s in c.load_sources():
+    for s in c.load_sources().on_right():
         state = s.to_state()
         if state.data[URL] == expected_state_data["url"] and state.data[PAGE] == expected_state_data["after"]:
             total += 1
@@ -41,7 +41,7 @@ def test_conf_backup():
 
 def test_conf_over():
     c = base_conf('./data/fake_conf_over.json')
-    assert len(c.load_sources()) == 1
+    assert len(c.load_sources().on_right()) == 1
 
 
 def test_conf_rules():
@@ -61,7 +61,7 @@ def test_conf_check_feed():
     c = base_conf('./data/fake_conf_condition.json')
     sources = c.load_sources()
     found = False
-    for source in sources:
+    for source in sources.on_right():
         if source.get_name() == "tof":
             found = True
             assert source.condition.value_container == ".try"

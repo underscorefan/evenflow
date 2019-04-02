@@ -13,7 +13,16 @@ from evenflow.streams.messages import ArticleExtended, Error, DataKeeper
 
 LIMIT_PER_HOST = 2
 
-firefox = {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:65.0) Gecko/20100101 Firefox/65.0"}
+firefox = {
+    "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:66.0) Gecko/20100101 Firefox/66.0",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "it-IT,it;q=0.8,en-US;q=0.5,en;q=0.3",
+    "Accept-Encoding": "gzip, deflate",
+    "Upgrade-Insecure-Requests": "1",
+    "Connection": "keep-alive",
+    "Cookie": "_ga=GA1.2.661111166.1554214595",
+    "Cache-Control": "max-age=0"
+}
 
 
 def newspaper_config() -> Configuration:
@@ -74,6 +83,7 @@ class DispatcherSettings:
             newspaper_conf: Configuration,
             rules: ArticleRules,
             timeout: int,
+            loop: asyncio.events,
             backup_path: Optional[str] = None,
             initial_state: Optional[Dict] = None
     ):
@@ -81,12 +91,13 @@ class DispatcherSettings:
         self.headers = headers
         self.newspaper_conf = newspaper_conf
         self.rules = rules
+        self.loop = loop
         self.backup_path = backup_path
         self.state = initial_state
         self.timeout = timeout
 
     def make_session(self) -> ClientSession:
-        return ClientSession(connector=self.connector, headers=self.headers)
+        return ClientSession(connector=self.connector, headers=self.headers, loop=self.loop)
 
     def make_backup_manager(self) -> BackupManager:
         return BackupManager(self.backup_path, self.state)
@@ -100,6 +111,7 @@ class DefaultDispatcher(DispatcherSettings):
     def __init__(
             self,
             rules: ArticleRules,
+            loop: asyncio.events,
             backup_path: Optional[str] = None,
             initial_state: Optional[Dict] = None,
             timeout: int = 60
@@ -108,6 +120,7 @@ class DefaultDispatcher(DispatcherSettings):
             connector=TCPConnector(limit_per_host=LIMIT_PER_HOST),
             headers=firefox,
             rules=rules,
+            loop=loop,
             backup_path=backup_path,
             initial_state=initial_state,
             newspaper_conf=newspaper_config(),

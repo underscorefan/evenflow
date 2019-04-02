@@ -2,146 +2,157 @@ import asyncio
 import time
 import traceback
 import uvloop
+import abc
 
 from asyncpg.pool import Pool
-from typing import Optional, List
+from typing import List, Dict, Awaitable
 from functools import partial
 from aiohttp import ClientSession
+from dirtyfunc import Either, Left, Right
 from evenflow import Conf
+from evenflow.dbops import DatabaseCredentials
+from evenflow.data_manager import DataManager
 from evenflow.streams import consumers, producers
-from evenflow.urlman import LabelledSources
-from evenflow.dbops import queries, DatabaseCredentials
 from evenflow.scrapers.feed import FeedScraper
 
-HIGH, LOW, MIXED, ARCHIVE = "high", "low", "mixed", "archive"
 S, A, E, D = "sources", "articles", "errors", "delete"
 
 
-class ConnectionManager:
-    def __init__(self, db_credentials: DatabaseCredentials):
-        self.db_credentials = db_credentials
-        self.__pool: Optional[Pool] = None
+class Bootstrap(abc.ABC):
+    def __init__(self, loop: asyncio.events, rules: consumers.ArticleRules):
+        self.loop = loop
+        self.q = self.__create_queues()
+        self.dispatcher_settings = self.__create_dispatcher(rules)
 
-    @property
-    async def article_rules(self) -> consumers.ArticleRules:
-        labelled_sources = await self.make_url_dict()
-        add_url_partial = partial(self.add_url, labelled_sources)
-        return consumers.ArticleRules(lambda url, from_fake, archived: add_url_partial(url, from_fake, archived))
+    def __create_queues(self) -> Dict[str, asyncio.Queue]:
+        return {name: asyncio.Queue(loop=self.loop) for name in [S, A, E]}
 
-    async def make_url_dict(self) -> LabelledSources:
-        records = await self.db_credentials.do_with_connection(lambda c: queries.select_sources(c))
-        labelled_sources = LabelledSources(False)
-        true_labels, fake_labels = {'very high', 'high'}, {'low', 'insane stuff', 'satire', 'very low'}
+    def __create_dispatcher(self, rules: consumers.ArticleRules):
+        return partial(consumers.DefaultDispatcher, loop=self.loop, rules=rules)
 
-        for record in records:
-            label, url = record['factual_reporting'], record["url"]
+    def create_tasks(self, pool: Pool) -> List[Awaitable]:
+        dispatcher_queues = consumers.DispatcherQueues(links=self.q[S], storage=self.q[A], error=self.q[E])
+        return [
+            consumers.dispatch_links(conf=self.dispatcher_settings(), queues=dispatcher_queues),
+            consumers.store_articles(
+                pool=pool, storage_queue=self.q[A], error_queue=self.q[E], delete_queue=self.q.get(D)
+            ),
+            consumers.store_errors(pool=pool, error_queue=self.q[E])
+        ]
 
-            if label == MIXED:
-                labelled_sources[url] = MIXED
-                continue
+    @abc.abstractmethod
+    def create_producers(self) -> List[Awaitable]:
+        pass
 
-            if label in true_labels:
-                labelled_sources[url] = HIGH
-                continue
 
-            if label in fake_labels:
-                labelled_sources[url] = LOW
+class BootstrapScraper(Bootstrap):
 
-        for arch in [f"archive.{dom}" for dom in ["is", "fo", "today"]] + ["web.archive.org"]:
-            labelled_sources[arch] = ARCHIVE
+    def __init__(
+            self,
+            loop: asyncio.events,
+            rules: consumers.ArticleRules,
+            backup_path: str,
+            initial_state: Dict,
+            feeds: List[FeedScraper],
+            reddit_settings: producers.RedditSettings,
+            session: ClientSession
+    ):
+        super().__init__(loop=loop, rules=rules)
+        self.dispatcher_settings = partial(
+            self.dispatcher_settings,
+            backup_path=backup_path,
+            initial_state=initial_state,
+            timeout=60
+        )
+        self.feeds = feeds
+        self.rsm = reddit_settings
+        self.ssn = session
 
-        return labelled_sources.strip(True)
+    def create_producers(self) -> List[Awaitable]:
+        return [
+            producers.collect_links_html(send_channel=self.q[S], to_scrape=self.feeds, session=self.ssn),
+            producers.collect_links_reddit(send_channel=self.q[S], rsm=self.rsm)
+        ]
 
-    @property
-    async def pool(self) -> Pool:
-        if self.__pool is None:
-            print("about to create pool")
-            self.__pool = await self.db_credentials.make_pool()
-        return self.__pool
 
-    async def close_pool(self):
-        if self.__pool is not None:
-            await self.__pool.close()
+class BootstrapRestorer(Bootstrap):
 
-    async def delete_errors(self):
-        await self.db_credentials.do_with_connection(lambda conn: queries.delete_errors(conn))
+    def __init__(self, loop: asyncio.events, rules: consumers.ArticleRules, db_cred: DatabaseCredentials):
+        super().__init__(loop, rules)
+        self.q[D] = asyncio.Queue(loop=loop)
+        self.db_cred = db_cred
+        self.dispatcher_settings = partial(self.dispatcher_settings, timeout=189)
 
-    @staticmethod
-    def add_url(labelled_sources: LabelledSources, url: str, from_fake: bool, from_archive: bool) -> bool:
-        label = labelled_sources[url]
+    def create_tasks(self, pool: Pool) -> List[Awaitable]:
+        to_ret = super().create_tasks(pool)
+        to_ret.append(consumers.delete_errors(pool=pool, delete=self.q[D]))
+        return to_ret
 
-        if label == HIGH:
-            return not from_fake
+    def create_producers(self) -> List[Awaitable]:
+        return [
+            producers.restore_errors(send_channel=self.q[S], db_cred=self.db_cred, fake=label)
+            for label in [True, False]
+        ]
 
-        if label == LOW:
-            return from_fake
 
-        if label == MIXED:
-            return from_fake and from_archive
+def bootstrapper(
+        conf: Conf,
+        loop: asyncio.events,
+        rules: consumers.ArticleRules,
+        session: ClientSession
+) -> Either[Exception, Bootstrap]:
 
-        return label == ARCHIVE and from_fake and not from_archive
+    maybe_feeds, maybe_rs = conf.load_sources(), conf.load_reddit_settings()
+    if maybe_feeds.empty and maybe_rs.empty and not conf.restore:
+        return Left[Exception](ValueError("no sources to begin with"))
+
+    if conf.restore:
+        return Right[Bootstrap](BootstrapRestorer(loop=loop, db_cred=conf.setupdb(), rules=rules))
+
+    return Right[Bootstrap](
+        BootstrapScraper(
+            loop=loop,
+            rules=rules,
+            feeds=maybe_feeds.on_right(),
+            reddit_settings=maybe_rs.on_right(),
+            backup_path=conf.backup_file_path,
+            initial_state=conf.initial_state,
+            session=session
+        )
+    )
 
 
 async def asy_main(loop: asyncio.events, conf: Conf) -> float:
-    maybe_feeds, maybe_rs = conf.load_sources(), conf.load_reddit_settings()
+    data_manager = DataManager(db_credentials=conf.setupdb())
+    article_rules = conf.load_rules_into(await data_manager.article_rules)
 
-    if maybe_feeds.empty and maybe_rs.empty and not conf.restore:
-        print("no sources to begin with")
-        return 0.0
+    async with ClientSession(loop=loop) as session:
+        maybe_start = bootstrapper(conf, loop, rules=article_rules, session=session)
+        if maybe_start.empty:
+            print(maybe_start.on_left())
+            return 0.0
 
-    feeds: List[FeedScraper] = maybe_feeds.on_right()
-    reddit_settings: producers.RedditSettings = maybe_rs.on_right()
+        bootstrap: Bootstrap = maybe_start.on_right()
+        jobs = [asyncio.ensure_future(task, loop=loop) for task in bootstrap.create_tasks(await data_manager.pool)]
 
-    q = {name: asyncio.Queue(loop=loop) for name in ([S, A, E, D] if conf.restore else [S, A, E])}
+        start_time = time.perf_counter()
+        for producer in bootstrap.create_producers():
+            await producer
 
-    bootstrap = ConnectionManager(db_credentials=conf.setupdb())
+        scrape_time = time.perf_counter() - start_time
 
-    dispatcher_conf = consumers.DefaultDispatcher(
-        backup_path=conf.backup_file_path if not conf.restore else None,
-        initial_state=conf.initial_state if not conf.restore else None,
-        timeout=60 if not conf.restore else 1800,
-        rules=conf.load_rules_into(await bootstrap.article_rules)
-    )
+        for queue in bootstrap.q.values():
+            await queue.join()
 
-    dispatcher_queues = consumers.DispatcherQueues(links=q[S], storage=q[A], error=q[E])
+        for job in jobs:
+            job.cancel()
 
-    futures = [
-        consumers.dispatch_links(conf=dispatcher_conf, queues=dispatcher_queues),
-        consumers.store_articles(
-            pool=await bootstrap.pool, storage_queue=q[A], error_queue=q[E], delete_queue=q.get(D)
-        ),
-        consumers.store_errors(pool=await bootstrap.pool, error_queue=q[E])
-    ]
+        print("delete duplicate errors")
+        await data_manager.delete_errors()
+        await data_manager.close_pool()
+        print("pool closed")
 
-    if conf.restore:
-        futures.append(consumers.delete_errors(pool=await bootstrap.pool, delete=q[D]))
-
-    consumer_jobs = [asyncio.ensure_future(future, loop=loop) for future in futures]
-
-    start_time = time.perf_counter()
-
-    if not conf.restore:
-        async with ClientSession() as session:
-            await producers.collect_links_html(send_channel=q[S], to_scrape=feeds, session=session)
-        await producers.collect_links_reddit(send_channel=q[S], rsm=reddit_settings)
-    else:
-        for label in [True, False]:
-            await producers.restore_errors(send=q[S], db_cred=bootstrap.db_credentials, fake=label)
-
-    scrape_time = time.perf_counter() - start_time
-
-    for k in q:
-        await q[k].join()
-
-    for consumer in consumer_jobs:
-        consumer.cancel()
-
-    print("delete duplicate errors")
-    print(await bootstrap.delete_errors())
-    await bootstrap.close_pool()
-    print("pool closed")
-
-    return scrape_time
+        return scrape_time
 
 
 def run(c: Conf):
