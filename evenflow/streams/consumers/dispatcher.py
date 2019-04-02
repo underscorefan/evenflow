@@ -73,9 +73,9 @@ class DispatcherSettings:
             headers: Dict[str, str],
             newspaper_conf: Configuration,
             rules: ArticleRules,
+            timeout: int,
             backup_path: Optional[str] = None,
-            initial_state: Optional[Dict] = None,
-            timeout: Optional[int] = 60
+            initial_state: Optional[Dict] = None
     ):
         self.connector = connector
         self.headers = headers
@@ -101,7 +101,8 @@ class DefaultDispatcher(DispatcherSettings):
             self,
             rules: ArticleRules,
             backup_path: Optional[str] = None,
-            initial_state: Optional[Dict] = None
+            initial_state: Optional[Dict] = None,
+            timeout: int = 60
     ):
         super().__init__(
             connector=TCPConnector(limit_per_host=LIMIT_PER_HOST),
@@ -109,7 +110,8 @@ class DefaultDispatcher(DispatcherSettings):
             rules=rules,
             backup_path=backup_path,
             initial_state=initial_state,
-            newspaper_conf=newspaper_config()
+            newspaper_conf=newspaper_config(),
+            timeout=timeout
         )
 
 

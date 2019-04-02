@@ -3,119 +3,132 @@ import time
 import traceback
 import uvloop
 
-from dirtyfunc import Either
+from asyncpg.pool import Pool
 from typing import Optional, List
 from functools import partial
 from aiohttp import ClientSession
 from evenflow import Conf
 from evenflow.streams import consumers, producers
 from evenflow.urlman import LabelledSources
-from evenflow.dbops import select as db_sources, DatabaseCredentials
+from evenflow.dbops import queries, DatabaseCredentials
 from evenflow.scrapers.feed import FeedScraper
 
 HIGH, LOW, MIXED, ARCHIVE = "high", "low", "mixed", "archive"
+S, A, E, D = "sources", "articles", "errors", "delete"
 
 
-class Bootstrap:
-    def __init__(self, loop: asyncio.events, c: Conf):
-        self.loop = loop
-        self.db_credentials: DatabaseCredentials = c.setupdb()
-        self.feeds: Optional[List[FeedScraper]] = c.load_sources()
-        self.maybe_reddit_settings: Either[Exception, producers.RedditSettings] = c.load_reddit_settings()
+class ConnectionManager:
+    def __init__(self, db_credentials: DatabaseCredentials):
+        self.db_credentials = db_credentials
+        self.__pool: Optional[Pool] = None
 
+    @property
+    async def article_rules(self) -> consumers.ArticleRules:
+        labelled_sources = await self.make_url_dict()
+        add_url_partial = partial(self.add_url, labelled_sources)
+        return consumers.ArticleRules(lambda url, from_fake, archived: add_url_partial(url, from_fake, archived))
 
-async def make_url_dict(cred: DatabaseCredentials) -> LabelledSources:
-    records = await cred.do_with_connection(lambda c: db_sources.select_sources(c))
-    labelled_sources = LabelledSources(False)
-    true_labels, fake_labels = {'very high', 'high'}, {'low', 'insane stuff', 'satire', 'very low'}
+    async def make_url_dict(self) -> LabelledSources:
+        records = await self.db_credentials.do_with_connection(lambda c: queries.select_sources(c))
+        labelled_sources = LabelledSources(False)
+        true_labels, fake_labels = {'very high', 'high'}, {'low', 'insane stuff', 'satire', 'very low'}
 
-    for record in records:
-        label, url = record['factual_reporting'], record["url"]
+        for record in records:
+            label, url = record['factual_reporting'], record["url"]
+
+            if label == MIXED:
+                labelled_sources[url] = MIXED
+                continue
+
+            if label in true_labels:
+                labelled_sources[url] = HIGH
+                continue
+
+            if label in fake_labels:
+                labelled_sources[url] = LOW
+
+        for arch in [f"archive.{dom}" for dom in ["is", "fo", "today"]] + ["web.archive.org"]:
+            labelled_sources[arch] = ARCHIVE
+
+        return labelled_sources.strip(True)
+
+    @property
+    async def pool(self) -> Pool:
+        if self.__pool is None:
+            print("about to create pool")
+            self.__pool = await self.db_credentials.make_pool()
+        return self.__pool
+
+    async def close_pool(self):
+        if self.__pool is not None:
+            await self.__pool.close()
+
+    async def delete_errors(self):
+        await self.db_credentials.do_with_connection(lambda conn: queries.delete_errors(conn))
+
+    @staticmethod
+    def add_url(labelled_sources: LabelledSources, url: str, from_fake: bool, from_archive: bool) -> bool:
+        label = labelled_sources[url]
+
+        if label == HIGH:
+            return not from_fake
+
+        if label == LOW:
+            return from_fake
 
         if label == MIXED:
-            labelled_sources[url] = MIXED
-            continue
+            return from_fake and from_archive
 
-        if label in true_labels:
-            labelled_sources[url] = HIGH
-            continue
-
-        if label in fake_labels:
-            labelled_sources[url] = LOW
-
-    for arch in [f"archive.{dom}" for dom in ["is", "fo", "today"]] + ["web.archive.org"]:
-        labelled_sources[arch] = ARCHIVE
-
-    return labelled_sources.strip(True)
-
-
-def add_url(labelled_sources: LabelledSources, url: str, from_fake: bool, from_archive: bool) -> bool:
-    label = labelled_sources[url]
-
-    if label == HIGH:
-        return not from_fake
-
-    if label == LOW:
-        return from_fake
-
-    if label == MIXED:
-        return from_fake and from_archive
-
-    return label == ARCHIVE and from_fake and not from_archive
+        return label == ARCHIVE and from_fake and not from_archive
 
 
 async def asy_main(loop: asyncio.events, conf: Conf) -> float:
-    feeds = conf.load_sources()
-    maybe_rs = conf.load_reddit_settings()
+    maybe_feeds, maybe_rs = conf.load_sources(), conf.load_reddit_settings()
 
-    if maybe_rs.empty:
-        print(maybe_rs.on_left())
-        return 0.0
-    reddit_settings: producers.RedditSettings = maybe_rs.on_right()
-
-    if (not feeds or len(feeds) == 0) and len(reddit_settings.subreddits) == 0:
+    if maybe_feeds.empty and maybe_rs.empty and not conf.restore:
         print("no sources to begin with")
         return 0.0
 
-    s, a, e = "sources", "articles", "errors"
-    q = {name: asyncio.Queue(loop=loop) for name in [s, a, e]}
+    feeds: List[FeedScraper] = maybe_feeds.on_right()
+    reddit_settings: producers.RedditSettings = maybe_rs.on_right()
 
-    print("about to create pool")
-    db_cred = conf.setupdb()
+    q = {name: asyncio.Queue(loop=loop) for name in ([S, A, E, D] if conf.restore else [S, A, E])}
 
-    pg_pool = await db_cred.make_pool()
-
-    labelled_sources = await make_url_dict(db_cred)
-    add_url_partial = partial(add_url, labelled_sources)
-
-    article_rules = conf.load_rules_into(
-        consumers.ArticleRules(
-            lambda url, from_fake, archived: add_url_partial(url, from_fake, archived)
-        )
-    )
+    bootstrap = ConnectionManager(db_credentials=conf.setupdb())
 
     dispatcher_conf = consumers.DefaultDispatcher(
-        backup_path=conf.backup_file_path,
-        initial_state=conf.initial_state,
-        rules=article_rules
+        backup_path=conf.backup_file_path if not conf.restore else None,
+        initial_state=conf.initial_state if not conf.restore else None,
+        timeout=60 if not conf.restore else 1800,
+        rules=conf.load_rules_into(await bootstrap.article_rules)
     )
 
-    dispatcher_queues = consumers.DispatcherQueues(links=q[s], storage=q[a], error=q[e])
+    dispatcher_queues = consumers.DispatcherQueues(links=q[S], storage=q[A], error=q[E])
 
     futures = [
         consumers.dispatch_links(conf=dispatcher_conf, queues=dispatcher_queues),
-        consumers.store_articles(pool=pg_pool, storage_queue=q[a], error_queue=q[e]),
-        consumers.store_errors(pool=pg_pool, error_queue=q[e])
+        consumers.store_articles(
+            pool=await bootstrap.pool, storage_queue=q[A], error_queue=q[E], delete_queue=q.get(D)
+        ),
+        consumers.store_errors(pool=await bootstrap.pool, error_queue=q[E])
     ]
+
+    if conf.restore:
+        futures.append(consumers.delete_errors(pool=await bootstrap.pool, delete=q[D]))
 
     consumer_jobs = [asyncio.ensure_future(future, loop=loop) for future in futures]
 
     start_time = time.perf_counter()
 
-    async with ClientSession() as session:
-        await producers.collect_links_html(send_channel=q[s], to_scrape=feeds, session=session)
-        await producers.collect_links_reddit(send_channel=q[s], rsm=reddit_settings)
-        scrape_time = time.perf_counter() - start_time
+    if not conf.restore:
+        async with ClientSession() as session:
+            await producers.collect_links_html(send_channel=q[S], to_scrape=feeds, session=session)
+        await producers.collect_links_reddit(send_channel=q[S], rsm=reddit_settings)
+    else:
+        for label in [True, False]:
+            await producers.restore_errors(send=q[S], db_cred=bootstrap.db_credentials, fake=label)
+
+    scrape_time = time.perf_counter() - start_time
 
     for k in q:
         await q[k].join()
@@ -123,7 +136,9 @@ async def asy_main(loop: asyncio.events, conf: Conf) -> float:
     for consumer in consumer_jobs:
         consumer.cancel()
 
-    await pg_pool.close()
+    print("delete duplicate errors")
+    print(await bootstrap.delete_errors())
+    await bootstrap.close_pool()
     print("pool closed")
 
     return scrape_time

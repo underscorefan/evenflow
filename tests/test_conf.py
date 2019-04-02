@@ -7,7 +7,7 @@ from evenflow.streams.messages import ArticleExtended
 
 
 def base_conf(config_file: str):
-    return Conf(config_file=config_file)
+    return Conf(config_file=config_file, restore=False)
 
 
 def test_conf_sources():

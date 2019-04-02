@@ -4,7 +4,7 @@ import praw
 
 from functools import partial
 from typing import List, Optional, Dict, ItemsView
-from dirtyfunc import Either
+from dirtyfunc import Either, Left, Right
 from evenflow.dbops import DatabaseCredentials
 from evenflow.scrapers.feed import FeedScraper, SiteFeed
 from evenflow.streams.messages import CollectorState
@@ -18,8 +18,9 @@ def read_json_from(path: str):
 
 
 class Conf:
-    def __init__(self, config_file: str):
+    def __init__(self, config_file: str, restore: bool):
         config_data = read_json_from(config_file)
+        self.restore = restore
         self.backup_file_path = config_data.get("backup")
         self.initial_state = self.__load_backup(self.backup_file_path)
         self.sources_json = config_data.get("sources")
@@ -27,17 +28,16 @@ class Conf:
         self.rules: Dict = config_data.get("rules")
         self.reddit: Dict = config_data.get("reddit")
 
-    def load_sources(self) -> Optional[List[FeedScraper]]:
+    def load_sources(self) -> Either[Exception, List[FeedScraper]]:
         try:
-            return list(
-                filter(
-                    lambda x: x,
-                    [self.__new_reader(s.items()) for s in self.sources_json]
-                )
-            )
+            scrapers = list(filter(lambda x: x, [self.__new_reader(s.items()) for s in self.sources_json]))
+            if len(scrapers) == 0:
+                return Left[Exception](ValueError("No scrapers found"))
 
-        except KeyError:
-            return None
+            return Right[List[FeedScraper]](scrapers)
+
+        except Exception as e:
+            return Left[Exception](e)
 
     def __load_reddit(self) -> RedditSettings:
         subs = self.reddit.get("subs")
@@ -52,8 +52,12 @@ class Conf:
         if credentials is None:
             raise ValueError("credentials is not defined")
 
+        subreddits = {k: v for k, v in subs.items() if not self.__subreddit_over(k)}
+        if len(subreddits) == 0:
+            raise ValueError("No subreddits found")
+
         return RedditSettings(
-            subreddits={k: v for k, v in subs.items() if not self.__subreddit_over(k)},
+            subreddits=subreddits,
             num_posts=num_posts,
             instance=praw.Reddit(**credentials)
         )
