@@ -51,7 +51,7 @@ class ArticleRules:
         self.__custom_checks: List[Callable[[ArticleExtended], bool]] = []
 
     def add_check(self, check: Callable[[ArticleExtended], bool]):
-        self.__custom_checks.append(check)
+        self.__custom_checks.append(lambda a: check(a))
 
     def add_title_check(self, check: Callable[[str], bool]):
         self.add_check(lambda a: check(a.title))

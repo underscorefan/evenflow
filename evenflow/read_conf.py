@@ -110,14 +110,15 @@ class Conf:
             return len(ch) >= min_len
 
         for key, value in dict_ml.items():
-            mt = partial(more_than, int(value))
-
             if key == "title":
-                article_rules.add_title_check(lambda t: mt(t))
+                j = int(value)
+                article_rules.add_title_check(lambda t: more_than(j, t))
             elif key == "text":
-                article_rules.add_text_check(lambda t: mt(t))
+                x = int(value)
+                article_rules.add_text_check(lambda t: more_than(x, t))
             elif key == "path_loc":
-                article_rules.add_path_check(lambda p: mt(p))
+                z = int(value)
+                article_rules.add_path_check(lambda p: more_than(z, p))
 
     @staticmethod
     def __load_backup(path: str) -> Optional[Dict[str, Dict]]:

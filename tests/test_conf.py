@@ -52,9 +52,11 @@ def test_conf_rules():
 
     pass_it = "https://www.theguardian.com/us-news/2019/mar/25/california-water-drought-scarce-saudi-arabia"
     not_pass_it = "http://www.dirittierovesci.com/team"
+    latimes = "http://www.latimes.com/business/la-fi-bernie-sanders-food-stamps-20180824-story.html"
 
     assert ar.pass_checks(fake_extended(pass_it)) is True
     assert ar.pass_checks(fake_extended(not_pass_it)) is False
+    assert ar.pass_checks(fake_extended(latimes)) is False
 
 
 def test_conf_check_feed():
