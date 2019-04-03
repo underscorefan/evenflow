@@ -2,7 +2,6 @@ import io
 import json
 import praw
 
-from functools import partial
 from typing import List, Optional, Dict, ItemsView
 from dirtyfunc import Either, Left, Right
 from evenflow.dbops import DatabaseCredentials
